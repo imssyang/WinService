@@ -1,0 +1,3 @@
+#include "gui/resource.h"
+
+IDR_MAINFRAME  ICON  "source\\gui\\res\\main.ico"

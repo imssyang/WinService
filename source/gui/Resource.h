@@ -1,0 +1,2 @@
+
+#define IDR_MAINFRAME 10000

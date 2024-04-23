@@ -1,0 +1,19 @@
+{
+    "configurations": [
+        {
+            "name": "Windows",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/source/**/*",
+                "${workspaceFolder}/source/util/*"
+            ],
+            "defines": [
+                "_CRT_SECURE_NO_WARNINGS",
+                "_USE_MATH_DEFINES",
+                "WIN32_LEAN_AND_MEAN"
+            ],
+            "intelliSenseMode": "msvc-x64"
+        }
+    ],
+    "version": 4
+}
