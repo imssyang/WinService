@@ -48,10 +48,12 @@ using stdout_wsm_sink_mt = stdout_wsm_sink<std::mutex>;
 class wsm_formatter_flag : public spdlog::custom_flag_formatter
 {
 public:
-    void format(const spdlog::details::log_msg &, const std::tm &, spdlog::memory_buf_t &dest) override {
-        std::string extra_msg = extra();
-        if (!extra_msg.empty())
+    void format(const spdlog::details::log_msg &msg, const std::tm &, spdlog::memory_buf_t &dest) override {
+        std::string payload(msg.payload.data(), msg.payload.size());
+        if (payload.find("WinApi@") != std::string::npos) {
+            std::string extra_msg = extra();
             dest.append(extra_msg.data(), extra_msg.data() + extra_msg.size());
+        }
     }
 
     std::unique_ptr<custom_flag_formatter> clone() const override {
@@ -60,21 +62,13 @@ public:
 
 private:
     std::string extra() {
-        DWORD code = GetLastError();
-        if (code == ERROR_SUCCESS
-            || code == ERROR_INVALID_HANDLE
-            || code == ERROR_INSUFFICIENT_BUFFER
-            || code == ERROR_ALREADY_EXISTS
-            || code == ERROR_MORE_DATA
-            || code == ERROR_BROKEN_PIPE)
-            return std::move(std::string());
-
+        DWORD dwLastError = GetLastError();
         LPVOID lpMsgBuf;
         FormatMessage(
             FORMAT_MESSAGE_ALLOCATE_BUFFER |
             FORMAT_MESSAGE_FROM_SYSTEM |
             FORMAT_MESSAGE_IGNORE_INSERTS,
-            NULL, code,
+            NULL, dwLastError,
             MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
             (LPSTR) &lpMsgBuf, 0, NULL );
 
@@ -84,7 +78,7 @@ private:
         LocalFree(lpMsgBuf);
 
         std::stringstream result;
-        result << " #err:" << code << ":" << msg;
+        result << dwLastError << ":" << msg;
         return std::move(result.str());
     }
 };

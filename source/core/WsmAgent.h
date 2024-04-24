@@ -18,23 +18,15 @@ private:
     static VOID WINAPI ServiceMainProc(DWORD argc, LPTSTR *argv);
     static DWORD WINAPI CtrlHandlerProc(
         DWORD control, DWORD eventType, LPVOID eventData, LPVOID context);
+    static DWORD WINAPI StdReadThread(LPVOID lpParam);
     bool SetStatus(DWORD currentState, DWORD win32ExitCode, DWORD waitHint);
     void WriteToPipe(void);
     void ReadFromPipe(void);
-    static VOID CALLBACK ReadPipeCompletion(DWORD dwErrorCode, DWORD dwNumberOfBytesTransfered, LPOVERLAPPED lpOverlapped);
-    BOOL CreatePipeEx(OUT LPHANDLE lpReadPipe, OUT LPHANDLE lpWritePipe,
-    IN LPSECURITY_ATTRIBUTES lpPipeAttributes, IN DWORD nSize,
-    DWORD dwReadMode, DWORD dwWriteMode);
-
 
 private:
-    HANDLE _stopEvent;
-    SERVICE_STATUS _status;
-    SERVICE_STATUS_HANDLE _statusHandle;
-    HANDLE _stdInRead;
-    HANDLE _stdInWrite;
-    HANDLE _stdOutRead;
-    HANDLE _stdOutWrite;
-    HANDLE _readEvent;
-    BYTE *_buf;
+    SERVICE_STATUS svcStatus_;
+    SERVICE_STATUS_HANDLE svcStatusHandle_;
+    HANDLE stdOutRead_;
+    HANDLE stdOutWrite_;
+    HANDLE stopEvent_;
 };
