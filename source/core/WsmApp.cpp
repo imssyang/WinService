@@ -80,7 +80,7 @@ bool WsmApp::SetDescription(const std::string& desc)
     return true;
 }
 
-std::optional<WsmSvcConfig> WsmApp::GetConfig()
+std::optional<WsmSvcConfig> WsmApp::GetConfig(bool hasDesc)
 {
     std::optional<WsmSvcConfig> result = std::nullopt;
 
@@ -106,29 +106,21 @@ std::optional<WsmSvcConfig> WsmApp::GetConfig()
     }
 
     LPSERVICE_DESCRIPTION lpsd = NULL;
-    if (!QueryServiceConfig2(_service,
-            SERVICE_CONFIG_DESCRIPTION,
-            NULL,
-            0,
-            &bytesNeeded)) {
-        lastError = GetLastError();
-        if (ERROR_INSUFFICIENT_BUFFER != lastError) {
-            //SPDLOG_ERROR("QueryServiceConfig2 failed");
-            //goto svcconfig_cleanup;
+    if (hasDesc) {
+        if (!QueryServiceConfig2(_service, SERVICE_CONFIG_DESCRIPTION, NULL, 0, &bytesNeeded)) {
+            if (ERROR_INSUFFICIENT_BUFFER == GetLastError()) {
+                bufSize = bytesNeeded;
+                lpsd = (LPSERVICE_DESCRIPTION) LocalAlloc(LMEM_FIXED, bufSize);
+                if (!QueryServiceConfig2(_service, SERVICE_CONFIG_DESCRIPTION, (LPBYTE) lpsd, bufSize, &bytesNeeded)) {
+                    SPDLOG_ERROR("QueryServiceConfig2 failed.");
+                    goto svcconfig_cleanup;
+                }
+            }
         }
-
-        bufSize = bytesNeeded;
-        lpsd = (LPSERVICE_DESCRIPTION) LocalAlloc(LMEM_FIXED, bufSize);
     }
 
-    if (!QueryServiceConfig2(_service,
-            SERVICE_CONFIG_DESCRIPTION,
-            (LPBYTE) lpsd,
-            bufSize,
-            &bytesNeeded)) {
-        //SPDLOG_ERROR("QueryServiceConfig2 failed.");
-        //goto svcconfig_cleanup;
-    }
+    if (!lpsd)
+        lpsd = (LPSERVICE_DESCRIPTION) LocalAlloc(LMEM_ZEROINIT, 0);
 
     result = std::make_optional<WsmSvcConfig>();
     result.value().init(_name, *lpsc, *lpsd);

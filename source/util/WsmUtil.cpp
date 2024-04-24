@@ -137,7 +137,7 @@ void InitSpdlog(bool isGui, bool enableFile)
     }
 }
 
-std::string UTF8toGBK(const std::string& utf8)
+std::string UTF8toANSI(const std::string& utf8)
 {
     int wide_length = MultiByteToWideChar(CP_UTF8, 0, utf8.data(), -1, NULL, 0);
     if (wide_length == 0)
@@ -157,7 +157,7 @@ std::string UTF8toGBK(const std::string& utf8)
     return gbk;
 }
 
-std::string GBKtoUTF8(const std::string& gbk)
+std::string ANSItoUTF8(const std::string& gbk)
 {
     int wide_length = MultiByteToWideChar(CP_ACP, 0, gbk.data(), -1, NULL, 0);
     if (wide_length == 0)

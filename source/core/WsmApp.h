@@ -15,7 +15,7 @@ public:
     bool Enable();
     bool Disable();
     std::optional<WsmSvcStatus> GetStatus();
-    std::optional<WsmSvcConfig> GetConfig();
+    std::optional<WsmSvcConfig> GetConfig(bool hasDesc = false);
     std::vector<WsmSvcStatus> GetDependents();
     bool SetDescription(const std::string& desc);
     bool SetDacl(const std::string& trustee);

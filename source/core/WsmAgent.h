@@ -14,14 +14,11 @@ public:
     std::string GetPath() const override;
 
 private:
-	static BOOL CALLBACK WindowCloserProc(HWND hWnd, LPARAM lParam);
     static VOID WINAPI ServiceMainProc(DWORD argc, LPTSTR *argv);
-    static DWORD WINAPI CtrlHandlerProc(
-        DWORD control, DWORD eventType, LPVOID eventData, LPVOID context);
+    static DWORD WINAPI CtrlHandlerProc(DWORD control, DWORD eventType, LPVOID eventData, LPVOID context);
     static DWORD WINAPI StdReadThread(LPVOID lpParam);
+    static BOOL CALLBACK WindowCloserProc(HWND hWnd, LPARAM lParam);
     bool SetStatus(DWORD currentState, DWORD win32ExitCode, DWORD waitHint);
-    void WriteToPipe(void);
-    void ReadFromPipe(void);
 
 private:
     SERVICE_STATUS svcStatus_;

@@ -8,6 +8,7 @@
 #include <codecvt>
 #include <iostream>
 #include <locale>
+#include <map>
 #include <mutex>
 #include <optional>
 #include <sstream>
@@ -24,31 +25,32 @@ struct WsmSvcBase
     std::string displayName;
     unsigned long serviceType;
 
-    std::string getServiceType() {
+    std::string getServiceType() const {
         switch (serviceType) {
             case SERVICE_KERNEL_DRIVER:
-                return "KernelDriver";
+                return "Driver";
             case SERVICE_FILE_SYSTEM_DRIVER:
-                return "FileSystemDriver";
+                return "FSDriver";
             case SERVICE_WIN32_OWN_PROCESS:
             case SERVICE_WIN32_OWN_PROCESS | SERVICE_INTERACTIVE_PROCESS:
-                return "Win32OwnProcess";
+                return "OwnProcess";
             case SERVICE_WIN32_SHARE_PROCESS:
             case SERVICE_WIN32_SHARE_PROCESS | SERVICE_INTERACTIVE_PROCESS:
-                return "Win32ShareProcess";
-            default: return "Application";
+                return "ShareProcess";
+            default:
+                return "Application";
         }
     }
 
     void setServiceType(const std::string& st, bool isInteractive) {
 	    DWORD dwInteractiveBit = isInteractive ? SERVICE_INTERACTIVE_PROCESS : 0;
-        if (st == "KernelDriver")
+        if (st == "Driver")
             serviceType = SERVICE_KERNEL_DRIVER;
-        else if (st == "FileSystemDriver")
+        else if (st == "FSDriver")
             serviceType = SERVICE_FILE_SYSTEM_DRIVER;
-        else if (st == "Win32OwnProcess")
+        else if (st == "OwnProcess")
             serviceType = SERVICE_WIN32_OWN_PROCESS | dwInteractiveBit;
-        else if (st == "Win32ShareProcess")
+        else if (st == "ShareProcess")
             serviceType = SERVICE_WIN32_SHARE_PROCESS | dwInteractiveBit;
         else if (st == "Application")
             serviceType = SERVICE_WIN32_APP_AS_SERVICE;
@@ -98,7 +100,7 @@ struct WsmSvcStatus : public WsmSvcBase
         serviceFlags = ssp.dwServiceFlags;
     }
 
-    std::string getCurrentState() {
+    std::string getCurrentState() const {
         switch (currentState) {
             case SERVICE_CONTINUE_PENDING:
                 return "ContinuePending";
@@ -156,16 +158,20 @@ struct WsmSvcConfig : public WsmSvcBase
             loadOrderGroup = qsc.lpLoadOrderGroup;
     }
 
-    std::string getStartType() {
-        switch (startType) {
+    std::string getStartType() const {
+        return getStartType(startType);
+    }
+
+    static std::string getStartType(unsigned long st) {
+        switch (st) {
             case SERVICE_BOOT_START:
-                return "BootStart";
+                return "Boot";
             case SERVICE_SYSTEM_START:
-                return "SystemStart";
+                return "System";
             case SERVICE_AUTO_START:
-                return "AutoStart";
+                return "Automatic";
             case SERVICE_DEMAND_START:
-                return "DemandStart";
+                return "Manual";
             case SERVICE_DISABLED:
                 return "Disabled";
             default:
@@ -175,5 +181,5 @@ struct WsmSvcConfig : public WsmSvcBase
 };
 
 void InitSpdlog(bool isGui, bool enableFile);
-std::string UTF8toGBK(const std::string& utf8);
-std::string GBKtoUTF8(const std::string& gbk);
+std::string UTF8toANSI(const std::string& utf8);
+std::string ANSItoUTF8(const std::string& gbk);
