@@ -4,6 +4,7 @@
 #include <shlwapi.h>
 #include <strsafe.h>
 #include <windows.h>
+#include <DbgHelp.h>
 #include <cstdio>
 #include <codecvt>
 #include <iostream>
@@ -183,3 +184,4 @@ struct WsmSvcConfig : public WsmSvcBase
 void InitSpdlog(bool isGui, bool enableFile);
 std::string UTF8toANSI(const std::string& utf8);
 std::string ANSItoUTF8(const std::string& gbk);
+void PrintStackTrace();

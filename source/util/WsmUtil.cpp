@@ -114,7 +114,7 @@ void InitSpdlog(bool isGui, bool enableFile)
             auto file_formatter = std::make_unique<spdlog::pattern_formatter>();
             file_formatter->add_flag<wsm_formatter_flag>('*').set_pattern("[%P %C-%m-%d %H:%M:%S.%e %^%L%$ %s:%#:%!:%t] %v%*");
 
-            auto file_path = "O:/30-Project/_sample/WinServiceManager/log/wsm.txt";
+            auto file_path = "O:/30-Project/WinService/log/wsm.txt";
             auto max_size = 1024 * 1024 * 50; // 50MB
             auto max_files = 3;
             file_sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(file_path, max_size, max_files);
@@ -176,4 +176,3 @@ std::string ANSItoUTF8(const std::string& gbk)
         throw std::runtime_error("Failed to convert wide string to UTF-8");
     return utf8;
 }
-

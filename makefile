@@ -1,8 +1,8 @@
 
 MC = mc /U
 RC = rc /v
-CC = cl /c /nologo /utf-8 /std:c++17 /O1 /EHsc
-LINK = link /nologo /machine:X64
+CC = cl /c /nologo /utf-8 /std:c++17 /O1 /EHsc /Z7
+LINK = link /nologo /machine:X64 /DEBUG
 
 PROGRAM = wsm
 PROJECT = .

@@ -31,7 +31,7 @@ public:
     static void Init(const ImGuiTableSortSpecs* sortSpecs);
     static int Compare(const void* lhs, const void* rhs);
 
-    void Init(int id, WsmSvcStatus status, WsmSvcConfig config);
+    ImGuiServiceItem(int id, WsmSvcStatus status, WsmSvcConfig config);
     int GetID() const { return id_; }
     std::string GetName() const { return status_.serviceName; }
     std::string GetAlias() const { return status_.displayName; }
@@ -54,15 +54,16 @@ class ImGuiEngine;
 class ImGuiBaseWnd
 {
 public:
-    ImGuiBaseWnd(const ImGuiEngine* engine)
+    ImGuiBaseWnd(ImGuiEngine* engine)
         : engine_(engine), wndFlags_(ImGuiWindowFlags_None) {}
 
+    ImGuiEngine& GetEngine() const { return *engine_; }
     const ImVec2& GetPos() const { return wndPos_; }
     const ImVec2& GetSize() const { return wndSize_; }
     template<typename... Args> void HelpTip(Args... args);
 
 protected:
-    const ImGuiEngine *engine_;
+    ImGuiEngine *engine_;
     ImVec2 wndPos_;
     ImVec2 wndSize_;
     ImGuiWindowFlags wndFlags_;
@@ -83,9 +84,10 @@ public:
         ColumnID_Desc
     };
 
-    ImGuiServiceWnd(const ImGuiEngine* engine);
+    ImGuiServiceWnd(ImGuiEngine* engine);
 
     const std::vector<std::string>& GetColumnIDs() const { return columnIDs_; }
+    void SyncMode();
 
     void Show();
 
@@ -109,7 +111,9 @@ public:
 
     enum Mode { Mode_Self, Mode_All };
 
-    ImGuiNavigationWnd(const ImGuiEngine* engine);
+    ImGuiNavigationWnd(ImGuiEngine* engine);
+
+    Mode GetMode() const { return static_cast<Mode>(mode_); }
 
     void Show();
 
@@ -130,8 +134,8 @@ public:
     ~ImGuiEngine();
 
     ImFont* GetFont(Font id) { return fonts_[id]; }
-    const ImGuiNavigationWnd& GetNavigationWnd() const { return navWnd_; }
-    const ImGuiServiceWnd& GetServiceWnd() const { return servWnd_; }
+    ImGuiNavigationWnd& GetNavigationWnd() { return navWnd_; }
+    ImGuiServiceWnd& GetServiceWnd() { return servWnd_; }
 
     void ResetMainWnd();
     void SetMainSize(int width, int height);

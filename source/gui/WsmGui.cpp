@@ -133,11 +133,9 @@ int ImGuiServiceItem::Compare(const void* lhs, const void* rhs)
     return (a->GetID() - b->GetID());
 }
 
-void ImGuiServiceItem::Init(int id, WsmSvcStatus status, WsmSvcConfig config)
+ImGuiServiceItem::ImGuiServiceItem(int id, WsmSvcStatus status, WsmSvcConfig config)
+    : id_(id), status_(std::move(status)), config_(std::move(config))
 {
-    id_ = id;
-    status_ = std::move(status);
-    config_ = std::move(config);
 }
 
 template<typename... Args>
@@ -156,7 +154,7 @@ void ImGuiBaseWnd::HelpTip(Args... args)
     }
 }
 
-ImGuiServiceWnd::ImGuiServiceWnd(const ImGuiEngine* engine)
+ImGuiServiceWnd::ImGuiServiceWnd(ImGuiEngine* engine)
     : ImGuiBaseWnd(engine), startupID_(-1)
     , columnIDs_({"ID", "Name", "Alias", "Type", "Startup", "State", "PID", "Path", "Desc"})
 {
@@ -167,19 +165,6 @@ ImGuiServiceWnd::ImGuiServiceWnd(const ImGuiEngine* engine)
     startupIDs_.push_back(WsmSvcConfig::getStartType(SERVICE_DISABLED));
     startupIDs_.push_back(WsmSvcConfig::getStartType(-1));
 
-    auto services = WsmSvc::Inst().GetServices();
-    items_.resize(services.size(), ImGuiServiceItem());
-    for (int i = 0; i < services.size(); i++) {
-        auto& status = services[i];
-        WsmApp app(status.serviceName);
-        auto wscOpt = app.GetConfig(true);
-        if (!wscOpt)
-            continue;
-
-        auto& config = wscOpt.value();
-        items_[i].Init(i, status, config);
-    }
-
     wndFlags_ = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove
         | ImGuiWindowFlags_NoCollapse;
 
@@ -188,10 +173,58 @@ ImGuiServiceWnd::ImGuiServiceWnd(const ImGuiEngine* engine)
         | ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_RowBg | ImGuiTableFlags_PadOuterX
         | ImGuiTableFlags_BordersV | ImGuiTableFlags_BordersOuterH | ImGuiTableFlags_SizingFixedFit
         | ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY;
+
+    SyncMode();
+}
+
+void ImGuiServiceWnd::SyncMode()
+{
+    auto mode = GetEngine().GetNavigationWnd().GetMode();
+    std::vector<WsmSvcStatus> svcStatuses = WsmSvc::Inst().GetServices();
+    std::vector<WsmSvcConfig> svcConfigs;
+    for (int i = 0; i < svcStatuses.size(); i++) {
+        auto& status = svcStatuses[i];
+        WsmApp app(status.serviceName);
+        auto wscOpt = app.GetConfig(true);
+        if (!wscOpt) {
+            SPDLOG_WARN("{} get config failed!", status.serviceName);
+            continue;
+        }
+
+        auto& config = wscOpt.value();
+        if (mode == ImGuiNavigationWnd::Mode_Self) {
+            if (config.binaryPathName.find("RunAsService") != std::string::npos) {
+                svcConfigs.push_back(std::move(config));
+            }
+        } else if (mode == ImGuiNavigationWnd::Mode_All) {
+            svcConfigs.push_back(std::move(config));
+        }
+    }
+
+    svcStatuses.erase(std::remove_if(
+        svcStatuses.begin(), svcStatuses.end(), [&svcConfigs](const WsmSvcStatus& status) {
+            for (const auto& config : svcConfigs) {
+                if (status.serviceName == config.serviceName) {
+                    return false;
+                }
+            }
+            return true;
+        }
+    ), svcStatuses.end());
+
+    SPDLOG_INFO("configSize: {} statusSize: {}", svcConfigs.size(), svcStatuses.size());
+
+    items_.resize(svcConfigs.size());
+    for (int i = 0; i < svcConfigs.size(); i++) {
+        SPDLOG_WARN("---11---{}: {}-{}", i, svcStatuses[i].serviceName, svcConfigs[i].binaryPathName);
+        items_[i] = std::move(ImGuiServiceItem(i, svcStatuses[i], svcConfigs[i]));
+        SPDLOG_WARN("---22---{}: {}-{}", i, svcStatuses[i].serviceName, items_[i].GetPath());
+    }
 }
 
 void ImGuiServiceWnd::Show()
 {
+SPDLOG_WARN("---223333---{}: {}", items_[0].GetName(), items_[0].GetPath());
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
     auto& navWnd = engine_->GetNavigationWnd();
     wndPos_.x = viewport->WorkPos.x;
@@ -302,6 +335,7 @@ void ImGuiServiceWnd::Show()
 
                     }
                     ImGui::SameLine();
+                    SPDLOG_INFO("--3333-{}-{}: {}", row, item->GetName(), item->GetPath());
 
                     char* inputBuf = strdup(item->GetPath().data());
                     if (inputBuf) {
@@ -327,7 +361,7 @@ void ImGuiServiceWnd::Show()
     ImGui::End();
 }
 
-ImGuiNavigationWnd::ImGuiNavigationWnd(const ImGuiEngine* engine)
+ImGuiNavigationWnd::ImGuiNavigationWnd(ImGuiEngine* engine)
     : ImGuiBaseWnd(engine), mode_(Mode_Self), columnID_(ImGuiServiceWnd::ColumnID_Name)
 {
     wndFlags_ = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove
@@ -373,9 +407,20 @@ void ImGuiNavigationWnd::Show()
             ImGui::PopStyleColor(3);
             ImGui::SameLine();
             ImGui::RadioButton("self", &mode_, Mode_Self);
+            if (ImGui::IsItemClicked()) {
+                if (mode_ != Mode_Self) {
+                    mode_ = Mode_Self;
+                    GetEngine().GetServiceWnd().SyncMode();
+                }
+            }
             ImGui::SameLine();
             ImGui::RadioButton("all", &mode_, Mode_All);
-            HelpTip("Mode: ", mode_);
+            if (ImGui::IsItemClicked()) {
+                if (mode_ != Mode_All) {
+                    mode_ = Mode_All;
+                    GetEngine().GetServiceWnd().SyncMode();
+                }
+            }
         }
 
         if (ImGui::TableSetColumnIndex(ImGuiNavigationWnd::ColumnID_Control)) {
@@ -438,7 +483,7 @@ void ImGuiNavigationWnd::Show()
             filter_.Draw("##Filter:", wndSize_.x - charWidth * 89);
             ImGui::SameLine();
 
-            if (filter_.PassFilter("aaabbbccc")) {
+            if (filter_.PassFilter("abc")) {
                 HelpTip("PassFilter: ", filter_.InputBuf);
                 ImGui::SameLine();
             }
@@ -688,19 +733,55 @@ int ConsoleMainProxy(int argc, char *argv[])
     return ret;
 }
 
+
+#pragma comment(lib, "DbgHelp.lib")
+
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
+    HANDLE hCurrentProcess = GetCurrentProcess();
+    SymSetOptions(SYMOPT_DEBUG);
+    SymInitialize(hCurrentProcess, NULL, TRUE);
+
     InitSpdlog(true, true);
 
     CHAR currentDir[MAX_PATH] = {0,};
     GetCurrentDirectoryA(MAX_PATH, currentDir);
     SPDLOG_INFO("WinMain [{}:{}] @ [{}]", __argc, __argv[0], currentDir);
 
-    if (__argc > 1) {
-        ConsoleMainProxy(__argc, __argv);
-    } else {
-        GuiMain(__argc, __argv);
+    __try
+    {
+        if (__argc > 1) {
+            ConsoleMainProxy(__argc, __argv);
+        } else {
+            GuiMain(__argc, __argv);
+        }
+    }
+    __except(EXCEPTION_EXECUTE_HANDLER)
+    {
+        #define MAX_STACK_FRAMES 1024
+        void* stackFrames[MAX_STACK_FRAMES];
+        WORD numberOfFrames = CaptureStackBackTrace(0, MAX_STACK_FRAMES, stackFrames, NULL);
+        for (WORD i = 0; i < numberOfFrames; ++i) {
+            DWORD64 stackAddress = (DWORD64)(stackFrames[i]);
+            DWORD64 displacement = 0;
+            SymFromAddr(hCurrentProcess, stackAddress, &displacement, NULL);
+
+            CHAR lineInfo[MAX_PATH];
+            DWORD lineDisplacement = 0;
+            IMAGEHLP_LINE lineHlp;
+            lineHlp.SizeOfStruct = sizeof(IMAGEHLP_LINE);
+            if (SymGetLineFromAddr(hCurrentProcess, stackAddress, &lineDisplacement, &lineHlp)) {
+                sprintf_s(lineInfo, "%s:%lu", lineHlp.FileName, lineHlp.LineNumber);
+            } else {
+                strcpy_s(lineInfo, "N/A");
+            }
+
+            // 打印符号和行号信息
+            SPDLOG_INFO("Stack Frame {}:", i);
+            SPDLOG_INFO("  Line: {}", lineInfo);
+        }
     }
 
+    SymCleanup(hCurrentProcess);
     return 0;
 }
