@@ -3,9 +3,8 @@
         {
             "name": "Windows",
             "includePath": [
-                "${workspaceFolder}/**",
-                "${workspaceFolder}/source/**/*",
-                "${workspaceFolder}/source/util/*"
+                "${workspaceFolder}/**/*",
+                "${workspaceFolder}/source/**/*"
             ],
             "defines": [
                 "_CRT_SECURE_NO_WARNINGS",

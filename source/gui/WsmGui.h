@@ -93,8 +93,10 @@ public:
 
 private:
     int startupID_;
+    int stateID_;
     std::vector<std::string> columnIDs_;
     std::vector<std::string> startupIDs_;
+    std::vector<std::string> stateIDs_;
     std::vector<ImGuiServiceItem> items_;
     ImVector<int> selection_;
     ImGuiTableFlags servTableFlags_;

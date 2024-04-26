@@ -155,16 +155,8 @@ void ImGuiBaseWnd::HelpTip(Args... args)
 }
 
 ImGuiServiceWnd::ImGuiServiceWnd(ImGuiEngine* engine)
-    : ImGuiBaseWnd(engine), startupID_(-1)
-    , columnIDs_({"ID", "Name", "Alias", "Type", "Startup", "State", "PID", "Path", "Desc"})
+    : ImGuiBaseWnd(engine), startupID_(-1), stateID_(-1)
 {
-    startupIDs_.push_back(WsmSvcConfig::getStartType(SERVICE_BOOT_START));
-    startupIDs_.push_back(WsmSvcConfig::getStartType(SERVICE_SYSTEM_START));
-    startupIDs_.push_back(WsmSvcConfig::getStartType(SERVICE_AUTO_START));
-    startupIDs_.push_back(WsmSvcConfig::getStartType(SERVICE_DEMAND_START));
-    startupIDs_.push_back(WsmSvcConfig::getStartType(SERVICE_DISABLED));
-    startupIDs_.push_back(WsmSvcConfig::getStartType(-1));
-
     wndFlags_ = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove
         | ImGuiWindowFlags_NoCollapse;
 
@@ -173,6 +165,30 @@ ImGuiServiceWnd::ImGuiServiceWnd(ImGuiEngine* engine)
         | ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_RowBg | ImGuiTableFlags_PadOuterX
         | ImGuiTableFlags_BordersV | ImGuiTableFlags_BordersOuterH | ImGuiTableFlags_SizingFixedFit
         | ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY;
+
+    columnIDs_.swap(std::vector<std::string>(
+        {"ID", "Name", "Alias", "Type", "Startup", "State", "PID", "Path", "Desc"}
+    ));
+
+    startupIDs_.swap(std::vector<std::string>({
+        WsmSvcConfig::getStartType(SERVICE_BOOT_START),
+        WsmSvcConfig::getStartType(SERVICE_SYSTEM_START),
+        WsmSvcConfig::getStartType(SERVICE_AUTO_START),
+        WsmSvcConfig::getStartType(SERVICE_DEMAND_START),
+        WsmSvcConfig::getStartType(SERVICE_DISABLED),
+        WsmSvcConfig::getStartType(-1),
+    }));
+
+    stateIDs_.swap(std::vector<std::string>({
+        WsmSvcStatus::getState(SERVICE_CONTINUE_PENDING),
+        WsmSvcStatus::getState(SERVICE_PAUSE_PENDING),
+        WsmSvcStatus::getState(SERVICE_PAUSED),
+        WsmSvcStatus::getState(SERVICE_RUNNING),
+        WsmSvcStatus::getState(SERVICE_START_PENDING),
+        WsmSvcStatus::getState(SERVICE_STOP_PENDING),
+        WsmSvcStatus::getState(SERVICE_STOPPED),
+        WsmSvcStatus::getState(-1),
+    }));
 
     SyncItems();
 }
@@ -332,8 +348,10 @@ void ImGuiServiceWnd::Show()
                     ImGui::SetNextItemWidth(charWidth * 15);
                     if (ImGui::BeginCombo("##Startup", startupIDs_[startupID_].data(), ImGuiComboFlags_None)) {
                         for (int i = 0; i < startupIDs_.size(); i++) {
-                            if (i == startupIDs_.size()-1)
+                            if (startupIDs_[i] == WsmSvcConfig::getStartType(-1)
+                                || startupIDs_[i] == WsmSvcConfig::getStartType(SERVICE_BOOT_START)) {
                                 continue;
+                            }
                             bool isSelected = (startupID_ == i);
                             if (ImGui::Selectable(startupIDs_[i].data(), isSelected)) {
                                 if (startupID_ != i) {
@@ -348,7 +366,30 @@ void ImGuiServiceWnd::Show()
                     }
                 }
                 if (ImGui::TableSetColumnIndex(ImGuiServiceWnd::ColumnID_State)) {
-                    ImGui::TextUnformatted(item->GetState().data());
+                    auto it = std::find(stateIDs_.begin(), stateIDs_.end(), item->GetState());
+                    stateID_ = std::distance(stateIDs_.begin(), it);
+                    ImGui::SetNextItemWidth(charWidth * 15);
+                    if (ImGui::BeginCombo("##State", stateIDs_[stateID_].data(), ImGuiComboFlags_None)) {
+                        for (int i = 0; i < stateIDs_.size(); i++) {
+                            if (stateIDs_[i] == WsmSvcStatus::getState(SERVICE_CONTINUE_PENDING)
+                                || stateIDs_[i] == WsmSvcStatus::getState(SERVICE_PAUSE_PENDING)
+                                || stateIDs_[i] == WsmSvcStatus::getState(SERVICE_START_PENDING)
+                                || stateIDs_[i] == WsmSvcStatus::getState(SERVICE_STOP_PENDING)
+                                || stateIDs_[i] == WsmSvcStatus::getState(-1)) {
+                                continue;
+                            }
+                            bool isSelected = (stateID_ == i);
+                            if (ImGui::Selectable(stateIDs_[i].data(), isSelected)) {
+                                if (stateID_ != i) {
+                                    stateID_ = i;
+                                    SPDLOG_INFO("Select state: {}", stateIDs_[stateID_]);
+                                }
+                            }
+                            if (isSelected)
+                                ImGui::SetItemDefaultFocus();
+                        }
+                        ImGui::EndCombo();
+                    }
                 }
                 if (ImGui::TableSetColumnIndex(ImGuiServiceWnd::ColumnID_PID)) {
                     ImGui::Text("%d", item->GetPID());
@@ -383,7 +424,7 @@ void ImGuiServiceWnd::Show()
 }
 
 ImGuiNavigationWnd::ImGuiNavigationWnd(ImGuiEngine* engine)
-    : ImGuiBaseWnd(engine), mode_(Mode_Self), columnID_(ImGuiServiceWnd::ColumnID_Alias)
+    : ImGuiBaseWnd(engine), mode_(Mode_Self), columnID_(ImGuiServiceWnd::ColumnID_Path)
 {
     wndFlags_ = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove
         | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;
@@ -682,7 +723,7 @@ void GuiWindow::InitIcon(HWND hwnd)
 
 void GuiWindow::UpdateSize(UINT width, UINT height)
 {
-    SPDLOG_INFO("WndSize: {}x{}", width, height);
+    SPDLOG_DEBUG("WndSize: {}x{}", width, height);
     imgui_->SetMainSize(width, height);
 }
 
@@ -796,9 +837,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                 strcpy_s(lineInfo, "N/A");
             }
 
-            // 打印符号和行号信息
-            SPDLOG_INFO("Stack Frame {}:", i);
-            SPDLOG_INFO("  Line: {}", lineInfo);
+            SPDLOG_INFO("Stack Frame {}:{}", i, lineInfo);
         }
     }
 
