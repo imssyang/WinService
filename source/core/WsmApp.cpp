@@ -4,8 +4,8 @@
 WsmApp::WsmApp(const std::string& name, const std::string& alias):
     _name(name),
     _alias(alias),
-    _manager(NULL),
-    _service(NULL)
+    manager_(NULL),
+    service_(NULL)
 {
     if (_alias.empty())
         _alias = _name;
@@ -13,8 +13,8 @@ WsmApp::WsmApp(const std::string& name, const std::string& alias):
 
 WsmApp::~WsmApp()
 {
-    if (_service)
-        CloseServiceHandle(_service);
+    if (service_)
+        CloseServiceHandle(service_);
 }
 
 bool WsmApp::Install(const std::string& path)
@@ -25,7 +25,7 @@ bool WsmApp::Install(const std::string& path)
     TCHAR executedPath[MAX_PATH];
     StringCbPrintf(executedPath, MAX_PATH, TEXT("%s"), path.data());
 
-    _service = CreateService(_manager,
+    service_ = CreateService(manager_,
         _name.data(),
         _alias.data(),
         SERVICE_ALL_ACCESS,
@@ -34,7 +34,7 @@ bool WsmApp::Install(const std::string& path)
         SERVICE_ERROR_NORMAL,
         executedPath,
         NULL, NULL, NULL, NULL, NULL);
-    if (_service == NULL) {
+    if (service_ == NULL) {
         SPDLOG_ERROR("CreateService failed!");
         return false;
     }
@@ -49,7 +49,7 @@ bool WsmApp::Uninstall()
     if (!Init(TRUE, TRUE, DELETE))
         return false;
 
-    if (!DeleteService(_service)) {
+    if (!DeleteService(service_)) {
         SPDLOG_ERROR("DeleteService failed.");
         return false;
     }
@@ -68,7 +68,7 @@ bool WsmApp::SetDescription(const std::string& desc)
 
     SERVICE_DESCRIPTION sd;
     sd.lpDescription = (LPTSTR)desc.data();
-    if (!ChangeServiceConfig2(_service,
+    if (!ChangeServiceConfig2(service_,
             SERVICE_CONFIG_DESCRIPTION,
             &sd)) {
         SPDLOG_ERROR("ChangeServiceConfig2 failed");
@@ -89,7 +89,7 @@ std::optional<WsmSvcConfig> WsmApp::GetConfig(bool hasDesc)
 
     LPQUERY_SERVICE_CONFIG lpsc = NULL;
     DWORD bytesNeeded, bufSize, lastError;
-    if (!QueryServiceConfig(_service, NULL, 0, &bytesNeeded)) {
+    if (!QueryServiceConfig(service_, NULL, 0, &bytesNeeded)) {
         lastError = GetLastError();
         if (ERROR_INSUFFICIENT_BUFFER != lastError) {
             SPDLOG_ERROR("QueryServiceConfig failed ({})", lastError);
@@ -100,18 +100,18 @@ std::optional<WsmSvcConfig> WsmApp::GetConfig(bool hasDesc)
         lpsc = (LPQUERY_SERVICE_CONFIG) LocalAlloc(LMEM_FIXED, bufSize);
     }
 
-    if (!QueryServiceConfig(_service, lpsc, bufSize, &bytesNeeded)) {
+    if (!QueryServiceConfig(service_, lpsc, bufSize, &bytesNeeded)) {
         SPDLOG_ERROR("QueryServiceConfig failed.");
         goto svcconfig_cleanup;
     }
 
     LPSERVICE_DESCRIPTION lpsd = NULL;
     if (hasDesc) {
-        if (!QueryServiceConfig2(_service, SERVICE_CONFIG_DESCRIPTION, NULL, 0, &bytesNeeded)) {
+        if (!QueryServiceConfig2(service_, SERVICE_CONFIG_DESCRIPTION, NULL, 0, &bytesNeeded)) {
             if (ERROR_INSUFFICIENT_BUFFER == GetLastError()) {
                 bufSize = bytesNeeded;
                 lpsd = (LPSERVICE_DESCRIPTION) LocalAlloc(LMEM_FIXED, bufSize);
-                if (!QueryServiceConfig2(_service, SERVICE_CONFIG_DESCRIPTION, (LPBYTE) lpsd, bufSize, &bytesNeeded)) {
+                if (!QueryServiceConfig2(service_, SERVICE_CONFIG_DESCRIPTION, (LPBYTE) lpsd, bufSize, &bytesNeeded)) {
                     SPDLOG_ERROR("QueryServiceConfig2 failed.");
                     goto svcconfig_cleanup;
                 }
@@ -186,7 +186,7 @@ bool WsmApp::Start()
         }
     }
 
-    if (!::StartService(_service, 0, NULL)) {
+    if (!::StartService(service_, 0, NULL)) {
         SPDLOG_ERROR("StartService failed.");
         return false;
     }
@@ -286,7 +286,7 @@ bool WsmApp::Stop()
     StopDependents();
 
     SERVICE_STATUS_PROCESS ssp;
-    if (!ControlService(_service, SERVICE_CONTROL_STOP, (LPSERVICE_STATUS) &ssp)) {
+    if (!ControlService(service_, SERVICE_CONTROL_STOP, (LPSERVICE_STATUS) &ssp)) {
         DWORD lastError = GetLastError();
         if (ERROR_BROKEN_PIPE != lastError) {
             SPDLOG_ERROR("ControlService failed.");
@@ -326,7 +326,7 @@ bool WsmApp::SetDacl(const std::string& trustee)
     DWORD descSize = 0;
     DWORD bytesNeeded = 0;
     PSECURITY_DESCRIPTOR psd = NULL;
-    if (!QueryServiceObjectSecurity(_service,
+    if (!QueryServiceObjectSecurity(service_,
             DACL_SECURITY_INFORMATION,
             &psd,
             0,
@@ -344,7 +344,7 @@ bool WsmApp::SetDacl(const std::string& trustee)
             goto dacl_cleanup;
         }
 
-        if (!QueryServiceObjectSecurity(_service,
+        if (!QueryServiceObjectSecurity(service_,
                 DACL_SECURITY_INFORMATION,
                 psd,
                 descSize,
@@ -390,7 +390,7 @@ bool WsmApp::SetDacl(const std::string& trustee)
         goto dacl_cleanup;
     }
 
-    if (!SetServiceObjectSecurity(_service, DACL_SECURITY_INFORMATION, &sd)) {
+    if (!SetServiceObjectSecurity(service_, DACL_SECURITY_INFORMATION, &sd)) {
         SPDLOG_ERROR("SetServiceObjectSecurity failed");
         goto dacl_cleanup;
     }
@@ -408,16 +408,16 @@ dacl_cleanup:
 
 bool WsmApp::Init(bool needManager, bool needOpenService, DWORD desiredAccess)
 {
-    if (needManager && !_manager) {
-        _manager = WsmSvc::Inst().GetManager();
-        if (!_manager) {
+    if (needManager && !manager_) {
+        manager_ = WsmSvc::Inst().GetManager();
+        if (!manager_) {
             return false;
         }
     }
 
-    if (needManager && needOpenService && !_service) {
-        _service = OpenService(_manager, _name.data(), desiredAccess);
-        if (!_service) {
+    if (needManager && needOpenService && !service_) {
+        service_ = OpenService(manager_, _name.data(), desiredAccess);
+        if (!service_) {
             SPDLOG_ERROR("OpenService failed");
             return false;
         }
@@ -432,7 +432,7 @@ bool WsmApp::SetStartup(DWORD type)
         return false;
 
     if (!ChangeServiceConfig(
-            _service,
+            service_,
             SERVICE_NO_CHANGE,
             type,
             SERVICE_NO_CHANGE,
@@ -450,7 +450,7 @@ std::optional<WsmSvcStatus> WsmApp::GetStatus()
     DWORD bytesNeeded;
     SERVICE_STATUS_PROCESS statusProcess;
     if (!QueryServiceStatusEx(
-            _service,
+            service_,
             SC_STATUS_PROCESS_INFO,
             (LPBYTE) &statusProcess,
             sizeof(SERVICE_STATUS_PROCESS),
@@ -477,7 +477,7 @@ bool WsmApp::StopDependents()
         if (wss.currentState == SERVICE_STOPPED)
             continue;
 
-        SC_HANDLE depService = OpenService(_manager, wss.serviceName.data(),
+        SC_HANDLE depService = OpenService(manager_, wss.serviceName.data(),
                                            SERVICE_STOP | SERVICE_QUERY_STATUS);
         if (!depService) {
             SPDLOG_ERROR("OpenService depend failed");
@@ -525,7 +525,7 @@ std::vector<WsmSvcStatus> WsmApp::GetDependents()
     DWORD bytesNeeded;
     DWORD returnedCount;
     LPENUM_SERVICE_STATUS lpDeps = NULL;
-    if (EnumDependentServices(_service, SERVICE_STATE_ALL, lpDeps, 0, &bytesNeeded, &returnedCount)) {
+    if (EnumDependentServices(service_, SERVICE_STATE_ALL, lpDeps, 0, &bytesNeeded, &returnedCount)) {
         // no dependent services!
         goto svcdepend_cleanup;
     }
@@ -541,7 +541,7 @@ std::vector<WsmSvcStatus> WsmApp::GetDependents()
         goto svcdepend_cleanup;
     }
 
-    if (!EnumDependentServices(_service, SERVICE_STATE_ALL, lpDeps, bytesNeeded, &bytesNeeded, &returnedCount)) {
+    if (!EnumDependentServices(service_, SERVICE_STATE_ALL, lpDeps, bytesNeeded, &bytesNeeded, &returnedCount)) {
         SPDLOG_ERROR("EnumDependentServices {} byte failed", bytesNeeded);
         goto svcdepend_cleanup;
     }

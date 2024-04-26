@@ -10,8 +10,11 @@ public:
         return instance;
     }
 
-    SC_HANDLE GetManager() {
-        return _manager;
+    static SC_HANDLE Manager(DWORD desiredAccess = SC_MANAGER_ALL_ACCESS) {
+        if (desiredAccess_ == desiredAccess) {
+            
+        }
+        return Inst().manager_;
     }
 
     std::vector<WsmSvcStatus> GetServices();
@@ -23,5 +26,6 @@ private:
     ~WsmSvc();
 
 private:
-    SC_HANDLE _manager;
+    SC_HANDLE manager_;
+    DWORD desiredAccess_;
 };

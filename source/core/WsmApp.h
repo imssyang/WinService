@@ -33,6 +33,6 @@ private:
     std::string _alias;
     std::string _desc;
     std::string _path;
-    SC_HANDLE _manager;
-    SC_HANDLE _service;
+    SC_HANDLE manager_;
+    SC_HANDLE service_;
 };
