@@ -174,14 +174,17 @@ ImGuiServiceWnd::ImGuiServiceWnd(ImGuiEngine* engine)
         | ImGuiTableFlags_BordersV | ImGuiTableFlags_BordersOuterH | ImGuiTableFlags_SizingFixedFit
         | ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY;
 
-    SyncMode();
+    SyncItems();
 }
 
-void ImGuiServiceWnd::SyncMode()
+void ImGuiServiceWnd::SyncItems()
 {
-    auto mode = GetEngine().GetNavigationWnd().GetMode();
+    items_.clear();
+    auto& navWnd = GetEngine().GetNavigationWnd();
+    auto& filter = navWnd.GetFilter();
+    auto mode = navWnd.GetMode();
+    auto columnID = navWnd.GetColumnID();
     std::vector<WsmSvcStatus> svcStatuses = WsmSvc::Inst().GetServices();
-    std::vector<WsmSvcConfig> svcConfigs;
     for (int i = 0; i < svcStatuses.size(); i++) {
         auto& status = svcStatuses[i];
         WsmApp app(status.serviceName);
@@ -192,31 +195,54 @@ void ImGuiServiceWnd::SyncMode()
         }
 
         auto& config = wscOpt.value();
+        ImGuiServiceItem item(i, status, config);
+        if (filter.IsActive()) {
+            std::string filterText;
+            switch (columnID) {
+            case ColumnID_ID:
+                filterText = std::to_string(item.GetID());
+                break;
+            case ColumnID_Name:
+                filterText = item.GetName();
+                break;
+            case ColumnID_Alias:
+                filterText = item.GetAlias();
+                break;
+            case ColumnID_Type:
+                filterText = item.GetType();
+                break;
+            case ColumnID_Startup:
+                filterText = item.GetStartup();
+                break;
+            case ColumnID_State:
+                filterText = item.GetState();
+                break;
+            case ColumnID_PID:
+                filterText = std::to_string(item.GetPID());
+                break;
+            case ColumnID_Path:
+                filterText = item.GetPath();
+                break;
+            case ColumnID_Desc:
+                filterText = item.GetDesc();
+                break;
+            default:
+                SPDLOG_ERROR("columnID:{} is invalid!", columnID);
+                break;
+            }
+
+            if (!filter.PassFilter(filterText.data())) {
+                continue;
+            }
+        }
+
         if (mode == ImGuiNavigationWnd::Mode_Self) {
             if (config.binaryPathName.find("RunAsService") != std::string::npos) {
-                svcConfigs.push_back(std::move(config));
+                items_.push_back(std::move(item));
             }
         } else if (mode == ImGuiNavigationWnd::Mode_All) {
-            svcConfigs.push_back(std::move(config));
+            items_.push_back(std::move(item));
         }
-    }
-
-    svcStatuses.erase(std::remove_if(
-        svcStatuses.begin(), svcStatuses.end(), [&svcConfigs](const WsmSvcStatus& status) {
-            for (const auto& config : svcConfigs) {
-                if (status.serviceName == config.serviceName) {
-                    return false;
-                }
-            }
-            return true;
-        }
-    ), svcStatuses.end());
-
-    SPDLOG_INFO("configSize: {} statusSize: {}", svcConfigs.size(), svcStatuses.size());
-
-    items_.clear();
-    for (int i = 0; i < svcConfigs.size(); i++) {
-        items_.push_back(std::move(ImGuiServiceItem(i, svcStatuses[i], svcConfigs[i])));
     }
 }
 
@@ -329,7 +355,6 @@ void ImGuiServiceWnd::Show()
                 }
                 if (ImGui::TableSetColumnIndex(ImGuiServiceWnd::ColumnID_Path)) {
                     if (ImGui::Button("Edit")) {
-
                     }
                     ImGui::SameLine();
 
@@ -358,7 +383,7 @@ void ImGuiServiceWnd::Show()
 }
 
 ImGuiNavigationWnd::ImGuiNavigationWnd(ImGuiEngine* engine)
-    : ImGuiBaseWnd(engine), mode_(Mode_Self), columnID_(ImGuiServiceWnd::ColumnID_Name)
+    : ImGuiBaseWnd(engine), mode_(Mode_Self), columnID_(ImGuiServiceWnd::ColumnID_Alias)
 {
     wndFlags_ = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove
         | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;
@@ -406,7 +431,7 @@ void ImGuiNavigationWnd::Show()
             if (ImGui::IsItemClicked()) {
                 if (mode_ != Mode_Self) {
                     mode_ = Mode_Self;
-                    GetEngine().GetServiceWnd().SyncMode();
+                    GetEngine().GetServiceWnd().SyncItems();
                 }
             }
             ImGui::SameLine();
@@ -414,7 +439,7 @@ void ImGuiNavigationWnd::Show()
             if (ImGui::IsItemClicked()) {
                 if (mode_ != Mode_All) {
                     mode_ = Mode_All;
-                    GetEngine().GetServiceWnd().SyncMode();
+                    GetEngine().GetServiceWnd().SyncItems();
                 }
             }
         }
@@ -477,31 +502,30 @@ void ImGuiNavigationWnd::Show()
             ImGui::SameLine();
 
             filter_.Draw("##Filter:", wndSize_.x - charWidth * 89);
-            ImGui::SameLine();
-
-            if (filter_.PassFilter("abc")) {
-                HelpTip("PassFilter: ", filter_.InputBuf);
-                ImGui::SameLine();
+            if (ImGui::IsItemFocused() && ImGui::IsKeyPressed(ImGuiKey_Enter)) {
+                GetEngine().GetServiceWnd().SyncItems();
             }
+            ImGui::SameLine();
 
             ImGui::Text("@");
             ImGui::SameLine();
-
             ImGui::SetNextItemWidth(charWidth * 10);
 
             auto& items = engine_->GetServiceWnd().GetColumnIDs();
             if (ImGui::BeginCombo("##Item", items[columnID_].data(), filterComboFlags_)) {
                 for (int i = 0; i < items.size(); i++) {
                     bool isSelected = (columnID_ == i);
-                    if (ImGui::Selectable(items[i].data(), isSelected))
+                    if (ImGui::Selectable(items[i].data(), isSelected)) {
                         columnID_ = i;
+                        GetEngine().GetServiceWnd().SyncItems();
+                    }
 
-                    if (isSelected)
+                    if (isSelected) {
                         ImGui::SetItemDefaultFocus();
+                    }
                 }
                 ImGui::EndCombo();
             }
-            HelpTip("comboIndex: ", columnID_);
         }
 
         ImGui::EndTable();

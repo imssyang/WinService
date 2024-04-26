@@ -87,7 +87,7 @@ public:
     ImGuiServiceWnd(ImGuiEngine* engine);
 
     const std::vector<std::string>& GetColumnIDs() const { return columnIDs_; }
-    void SyncMode();
+    void SyncItems();
 
     void Show();
 
@@ -113,7 +113,11 @@ public:
 
     ImGuiNavigationWnd(ImGuiEngine* engine);
 
+    ImGuiTextFilter& GetFilter() { return filter_; }
     Mode GetMode() const { return static_cast<Mode>(mode_); }
+    ImGuiServiceWnd::ColumnID GetColumnID() const {
+        return static_cast<ImGuiServiceWnd::ColumnID>(columnID_);
+    }
 
     void Show();
 
