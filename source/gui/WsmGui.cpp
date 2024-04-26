@@ -214,17 +214,14 @@ void ImGuiServiceWnd::SyncMode()
 
     SPDLOG_INFO("configSize: {} statusSize: {}", svcConfigs.size(), svcStatuses.size());
 
-    items_.resize(svcConfigs.size());
+    items_.clear();
     for (int i = 0; i < svcConfigs.size(); i++) {
-        SPDLOG_WARN("---11---{}: {}-{}", i, svcStatuses[i].serviceName, svcConfigs[i].binaryPathName);
-        items_[i] = std::move(ImGuiServiceItem(i, svcStatuses[i], svcConfigs[i]));
-        SPDLOG_WARN("---22---{}: {}-{}", i, svcStatuses[i].serviceName, items_[i].GetPath());
+        items_.push_back(std::move(ImGuiServiceItem(i, svcStatuses[i], svcConfigs[i])));
     }
 }
 
 void ImGuiServiceWnd::Show()
 {
-SPDLOG_WARN("---223333---{}: {}", items_[0].GetName(), items_[0].GetPath());
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
     auto& navWnd = engine_->GetNavigationWnd();
     wndPos_.x = viewport->WorkPos.x;
@@ -253,11 +250,11 @@ SPDLOG_WARN("---223333---{}: {}", items_[0].GetName(), items_[0].GetPath());
         ImGuiTableSortSpecs* sortSpecs = ImGui::TableGetSortSpecs();
         if (sortSpecs) {
             if (sortSpecs->SpecsDirty) {
-                if (items_.Size > 1) {
+                if (items_.size() > 1) {
                     ImGuiServiceItem::Init(sortSpecs);
-                    qsort(&items_[0], (size_t)items_.Size, sizeof(items_[0]), ImGuiServiceItem::Compare);
+                    qsort(&items_[0], (size_t)items_.size(), sizeof(items_[0]), ImGuiServiceItem::Compare);
                     sortSpecs->SpecsDirty = false;
-                    SPDLOG_INFO("qsort: {}", items_.Size);
+                    SPDLOG_INFO("qsort: {}", items_.size());
                 }
             }
         }
@@ -265,7 +262,7 @@ SPDLOG_WARN("---223333---{}: {}", items_[0].GetName(), items_[0].GetPath());
         ImGui::PushButtonRepeat(true);
 
         ImGuiListClipper clipper;
-        clipper.Begin(items_.Size);
+        clipper.Begin(items_.size());
         while (clipper.Step()) {
             for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; row++) {
                 ImGuiServiceItem* item = &items_[row];
@@ -335,7 +332,6 @@ SPDLOG_WARN("---223333---{}: {}", items_[0].GetName(), items_[0].GetPath());
 
                     }
                     ImGui::SameLine();
-                    SPDLOG_INFO("--3333-{}-{}: {}", row, item->GetName(), item->GetPath());
 
                     char* inputBuf = strdup(item->GetPath().data());
                     if (inputBuf) {

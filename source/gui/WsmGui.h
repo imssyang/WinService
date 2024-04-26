@@ -92,10 +92,10 @@ public:
     void Show();
 
 private:
+    int startupID_;
     std::vector<std::string> columnIDs_;
     std::vector<std::string> startupIDs_;
-    int startupID_;
-    ImVector<ImGuiServiceItem> items_;
+    std::vector<ImGuiServiceItem> items_;
     ImVector<int> selection_;
     ImGuiTableFlags servTableFlags_;
 };
