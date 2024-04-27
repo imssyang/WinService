@@ -20,19 +20,17 @@ public:
     bool SetDescription(const std::string& desc);
     bool SetDacl(const std::string& trustee);
 
-    std::string GetName() const { return _name; }
-    virtual std::string GetPath() const { return _path; }
+    std::string GetName() const { return name_; }
+    virtual std::string GetPath() const { return path_; }
 
 private:
-    bool Init(bool needManager, bool needOpenService, DWORD desiredAccess = SERVICE_ALL_ACCESS);
+    bool Init(DWORD scDesiredAccess = SC_MANAGER_ALL_ACCESS, DWORD svDesiredAccess = SERVICE_ALL_ACCESS);
     bool SetStartup(DWORD type);
     bool StopDependents();
 
 private:
-    std::string _name;
-    std::string _alias;
-    std::string _desc;
-    std::string _path;
-    SC_HANDLE manager_;
-    SC_HANDLE service_;
+    std::string name_;
+    std::string alias_;
+    std::string desc_;
+    std::string path_;
 };

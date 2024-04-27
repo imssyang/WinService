@@ -4,7 +4,9 @@
 #include <shlwapi.h>
 #include <strsafe.h>
 #include <windows.h>
+#ifdef _DEBUG
 #include <DbgHelp.h>
+#endif
 #include <cstdio>
 #include <codecvt>
 #include <iostream>
@@ -189,3 +191,13 @@ struct WsmSvcConfig : public WsmSvcBase
 void InitSpdlog(bool isGui, bool enableFile);
 std::string UTF8toANSI(const std::string& utf8);
 std::string ANSItoUTF8(const std::string& gbk);
+void PrintStackContext(CONTEXT* ctx);
+struct RtlContextException
+{
+    RtlContextException(){
+        RtlCaptureContext(&Context);
+        PrintStackContext(&Context);
+    }
+
+    CONTEXT Context;
+};

@@ -6,6 +6,9 @@
 #include "spdlog/sinks/rotating_file_sink.h"
 
 #pragma comment(lib, "Shlwapi.lib")
+#ifdef _DEBUG
+#pragma comment(lib, "DbgHelp.lib")
+#endif
 
 template<typename Mutex>
 class stdout_wsm_sink : public spdlog::sinks::base_sink<Mutex>
@@ -175,4 +178,88 @@ std::string ANSItoUTF8(const std::string& gbk)
     if (WideCharToMultiByte(CP_UTF8, 0, wide.data(), -1, &utf8[0], utf8_length, NULL, NULL) == 0)
         throw std::runtime_error("Failed to convert wide string to UTF-8");
     return utf8;
+}
+
+void PrintStackContext(CONTEXT* ctx)
+{
+#ifdef _DEBUG
+    HANDLE process = GetCurrentProcess();
+    HANDLE thread = GetCurrentThread();
+
+    STACKFRAME64 stack;
+    memset(&stack, 0, sizeof(STACKFRAME64));
+#if !defined(_M_AMD64)
+    stack.AddrPC.Offset = (*ctx).Eip;
+    stack.AddrPC.Mode = AddrModeFlat;
+    stack.AddrStack.Offset = (*ctx).Esp;
+    stack.AddrStack.Mode = AddrModeFlat;
+    stack.AddrFrame.Offset = (*ctx).Ebp;
+    stack.AddrFrame.Mode = AddrModeFlat;
+#endif
+
+    // On x64, StackWalk64 modifies the context record, that could
+    // cause crashes, so we create a copy to prevent it.
+    CONTEXT ctxCopy;
+    memcpy(&ctxCopy, ctx, sizeof(CONTEXT));
+
+    SymInitialize(process, NULL, TRUE ); // load symbols
+
+    const int maxNameLen = 256;
+    CHAR moduleName[maxNameLen];
+    CHAR symbolBuf[sizeof(SYMBOL_INFO) + MAX_SYM_NAME * sizeof(TCHAR)];
+    for (ULONG frame = 0; ; frame++) {
+        // get next call from stack
+        BOOL result = StackWalk64(
+#if defined(_M_AMD64)
+            IMAGE_FILE_MACHINE_AMD64,
+#else
+            IMAGE_FILE_MACHINE_I386,
+#endif
+            process,
+            thread,
+            &stack,
+            &ctxCopy,
+            NULL,
+            SymFunctionTableAccess64,
+            SymGetModuleBase64,
+            NULL
+        );
+
+        if (!result)
+            break;
+
+        // get symbol name for address
+        DWORD64 symbolDisp = 0;
+        PSYMBOL_INFO symbol = (PSYMBOL_INFO)symbolBuf;
+        symbol->SizeOfStruct = sizeof(SYMBOL_INFO);
+        symbol->MaxNameLen = MAX_SYM_NAME;
+        SymFromAddr(process, (ULONG64)stack.AddrPC.Offset, &symbolDisp, symbol);
+
+        //try to get line
+        DWORD lineDisp = 0;
+        IMAGEHLP_LINE64 *line = (IMAGEHLP_LINE64 *)malloc(sizeof(IMAGEHLP_LINE64));
+        line->SizeOfStruct = sizeof(IMAGEHLP_LINE64);
+        if (SymGetLineFromAddr64(process, stack.AddrPC.Offset, &lineDisp, line)) {
+            SPDLOG_INFO("\tat {} in {}: line: {}: address: 0x{:X}", symbol->Name, line->FileName, line->LineNumber, symbol->Address);
+        } else {
+            //failed to get line
+            SPDLOG_INFO("\tat {}, address 0x{:X}", symbol->Name, symbol->Address);
+            HMODULE hModule = NULL;
+            GetModuleHandleEx(
+                GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                (LPCTSTR)(stack.AddrPC.Offset),
+                &hModule
+            );
+
+            // at least print module name
+            lstrcpyA(moduleName,"");
+            if(hModule != NULL)
+                GetModuleFileNameA(hModule, moduleName, maxNameLen);
+            SPDLOG_INFO ("in {}", moduleName);
+        }
+
+        free(line);
+        line = NULL;
+    }
+#endif // DEBUG
 }

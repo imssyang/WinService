@@ -794,15 +794,15 @@ int ConsoleMainProxy(int argc, char *argv[])
     return ret;
 }
 
-
-#pragma comment(lib, "DbgHelp.lib")
+int ExceptionHandler(_EXCEPTION_POINTERS* ex)
+{
+    SPDLOG_INFO("*** Exception 0X{:X} occured ***", ex->ExceptionRecord->ExceptionCode);
+    PrintStackContext(ex->ContextRecord);
+    return EXCEPTION_EXECUTE_HANDLER;
+}
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
-    HANDLE hCurrentProcess = GetCurrentProcess();
-    SymSetOptions(SYMOPT_DEBUG);
-    SymInitialize(hCurrentProcess, NULL, TRUE);
-
     InitSpdlog(true, true);
 
     CHAR currentDir[MAX_PATH] = {0,};
@@ -811,36 +811,40 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     __try
     {
+        //SC_HANDLE manager_ = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
+        //if (!manager_) {
+        //    SPDLOG_ERROR("-----1234--OpenSCManager({0:X}) failed! WinApi@", STANDARD_RIGHTS_REQUIRED| SC_MANAGER_CONNECT|SC_MANAGER_ENUMERATE_SERVICE);
+        //    return 0;
+        //}
         if (__argc > 1) {
             ConsoleMainProxy(__argc, __argv);
         } else {
             GuiMain(__argc, __argv);
         }
     }
-    __except(EXCEPTION_EXECUTE_HANDLER)
+    __except(ExceptionHandler(GetExceptionInformation()))
     {
-        #define MAX_STACK_FRAMES 1024
-        void* stackFrames[MAX_STACK_FRAMES];
-        WORD numberOfFrames = CaptureStackBackTrace(0, MAX_STACK_FRAMES, stackFrames, NULL);
-        for (WORD i = 0; i < numberOfFrames; ++i) {
-            DWORD64 stackAddress = (DWORD64)(stackFrames[i]);
-            DWORD64 displacement = 0;
-            SymFromAddr(hCurrentProcess, stackAddress, &displacement, NULL);
+        SPDLOG_INFO("Exception");
 
-            CHAR lineInfo[MAX_PATH];
-            DWORD lineDisplacement = 0;
-            IMAGEHLP_LINE lineHlp;
-            lineHlp.SizeOfStruct = sizeof(IMAGEHLP_LINE);
-            if (SymGetLineFromAddr(hCurrentProcess, stackAddress, &lineDisplacement, &lineHlp)) {
-                sprintf_s(lineInfo, "%s:%lu", lineHlp.FileName, lineHlp.LineNumber);
-            } else {
-                strcpy_s(lineInfo, "N/A");
-            }
-
-            SPDLOG_INFO("Stack Frame {}:{}", i, lineInfo);
-        }
+        //#define MAX_STACK_FRAMES 1024
+        //void* stackFrames[MAX_STACK_FRAMES];
+        //WORD numberOfFrames = CaptureStackBackTrace(0, MAX_STACK_FRAMES, stackFrames, NULL);
+        //for (WORD i = 0; i < numberOfFrames; ++i) {
+        //    DWORD64 stackAddress = (DWORD64)(stackFrames[i]);
+        //    DWORD64 displacement = 0;
+        //    SymFromAddr(currentProcess, stackAddress, &displacement, NULL);
+        //    CHAR lineInfo[MAX_PATH];
+        //    DWORD lineDisplacement = 0;
+        //    IMAGEHLP_LINE lineHlp;
+        //    lineHlp.SizeOfStruct = sizeof(IMAGEHLP_LINE);
+        //    if (SymGetLineFromAddr(currentProcess, stackAddress, &lineDisplacement, &lineHlp)) {
+        //        sprintf_s(lineInfo, "%s:%lu", lineHlp.FileName, lineHlp.LineNumber);
+        //    } else {
+        //        strcpy_s(lineInfo, "N/A");
+        //    }
+        //    SPDLOG_INFO("Stack Frame {}:{}", i, lineInfo);
+        //}
     }
 
-    SymCleanup(hCurrentProcess);
     return 0;
 }

@@ -2,7 +2,7 @@
 
 #include "util/WsmUtil.h"
 
-class WsmSvc
+class WsmSvc final
 {
 public:
     static WsmSvc& Inst() {
@@ -10,13 +10,7 @@ public:
         return instance;
     }
 
-    static SC_HANDLE Manager(DWORD desiredAccess = SC_MANAGER_ALL_ACCESS) {
-        if (desiredAccess_ == desiredAccess) {
-            
-        }
-        return Inst().manager_;
-    }
-
+    SC_HANDLE GetManager(DWORD desiredAccess = SC_MANAGER_ALL_ACCESS);
     std::vector<WsmSvcStatus> GetServices();
 
 private:

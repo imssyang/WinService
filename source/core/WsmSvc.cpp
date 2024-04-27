@@ -4,10 +4,6 @@
 
 WsmSvc::WsmSvc(): manager_(NULL)
 {
-    //manager_ = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
-    //if (!manager_) {
-    //    SPDLOG_ERROR("OpenSCManager failed! WinApi@");
-    //}
 }
 
 WsmSvc::~WsmSvc()
@@ -16,20 +12,40 @@ WsmSvc::~WsmSvc()
         CloseServiceHandle(manager_);
 }
 
+SC_HANDLE WsmSvc::GetManager(DWORD desiredAccess) {
+    if (manager_) {
+        if (desiredAccess_ == SC_MANAGER_ALL_ACCESS
+            || desiredAccess_ == desiredAccess) {
+            return manager_;
+        }
+
+        CloseServiceHandle(manager_);
+    }
+
+    manager_ = OpenSCManager(NULL, NULL, desiredAccess);
+    if (!manager_) {
+        SPDLOG_ERROR("11111OpenSCManager({:X}) failed! WinApi@", desiredAccess);
+        return NULL;
+    }
+
+    SPDLOG_ERROR("11111OpenSCManager({:X}) succ! WinApi@", desiredAccess);
+    desiredAccess_ = desiredAccess;
+    return manager_;
+}
+
 std::vector<WsmSvcStatus> WsmSvc::GetServices()
 {
     std::vector<WsmSvcStatus> result;
 
-    manager_ = OpenSCManager(NULL, NULL, SC_MANAGER_ENUMERATE_SERVICE);
-    if (!manager_) {
-        SPDLOG_ERROR("OpenSCManager failed! WinApi@");
+    SC_HANDLE manager = GetManager(SC_MANAGER_ENUMERATE_SERVICE);
+    if (!manager) {
         goto svc_cleanup;
     }
 
     DWORD bufSize = 0;
     DWORD numServices = 0;
     DWORD resumeHandle = 0;
-    BOOL okStatus = EnumServicesStatusEx(manager_, SC_ENUM_PROCESS_INFO, SERVICE_WIN32, SERVICE_STATE_ALL, NULL,
+    BOOL okStatus = EnumServicesStatusEx(manager, SC_ENUM_PROCESS_INFO, SERVICE_WIN32, SERVICE_STATE_ALL, NULL,
                                          bufSize, &bufSize, &numServices, &resumeHandle, NULL);
     if (okStatus) {
         SPDLOG_ERROR("No services! EnumServicesStatusEx failed! WinApi@");
@@ -47,7 +63,7 @@ std::vector<WsmSvcStatus> WsmSvc::GetServices()
         goto svc_cleanup;
     }
 
-    okStatus = EnumServicesStatusEx(manager_, SC_ENUM_PROCESS_INFO, SERVICE_WIN32, SERVICE_STATE_ALL,
+    okStatus = EnumServicesStatusEx(manager, SC_ENUM_PROCESS_INFO, SERVICE_WIN32, SERVICE_STATE_ALL,
                                     (LPBYTE)services, bufSize, &bufSize, &numServices, &resumeHandle, NULL);
     if (!okStatus) {
         SPDLOG_ERROR("EnumServicesStatusEx failed! WinApi@");
@@ -65,5 +81,7 @@ std::vector<WsmSvcStatus> WsmSvc::GetServices()
 svc_cleanup:
     if (services)
         LocalFree(services);
+    if (manager)
+        CloseServiceHandle(manager);
     return std::move(result);
 }
