@@ -1,21 +1,37 @@
 
 MC = mc /U
 RC = rc /v
-CC = cl /c /nologo /utf-8 /std:c++17 /O1 /EHsc /Z7
-LINK = link /nologo /machine:X64 /DEBUG
+CC = cl /c /nologo
+LINK = link /nologo
 
 PROGRAM = wsm
 PROJECT = .
 BUILD = $(PROJECT)/build
 SOURCE = $(PROJECT)/source
 
-CFLAG = /I $(SOURCE) /I $(SOURCE)/util
+CFLAG = /utf-8 /std:c++17 /EHsc
+LFLAG = /machine:X64
+
+!IFDEF DEBUG
+CFLAG = $(CFLAG) /Zi /Od /MDd /RTC1
+LFLAG = $(LFLAG) /DEBUG
+!ELSE
+CFLAG = $(CFLAG) /O1
+!ENDIF
+
+!IFDEF FREETYPE
+CFLAG = $(CFLAG) /D "IMGUI_ENABLE_FREETYPE"
+!ENDIF
+
+CFLAG = $(CFLAG) /I $(SOURCE) /I $(SOURCE)/util
 CFLAG_GUI = $(CFLAG) /I $(SOURCE)/res
 CFLAG_GUI = $(CFLAG) /I $(SOURCE)/gui
 CFLAG_GUI = $(CFLAG_GUI) /I $(SOURCE)/gui/imgui
 CFLAG_GUI = $(CFLAG_GUI) /I $(SOURCE)/gui/imgui/backends
-LFLAG =
-LFLAG_GUI = $(LFLAG) /SUBSYSTEM:WINDOWS
+CFLAG_GUI = $(CFLAG_GUI) /I $(SOURCE)/gui/imgui/misc/freetype
+CFLAG_GUI = $(CFLAG_GUI) /I $(SOURCE)/gui/freetype/include
+RFLAG_GUI = /I $(SOURCE) /I $(SOURCE)/res /I $(SOURCE)/gui
+LFLAG_GUI = $(LFLAG) /SUBSYSTEM:WINDOWS /LIBPATH:"$(SOURCE)/gui/freetype/lib"
 
 {$(SOURCE)\util}.cpp{$(BUILD)\util}.obj:
   mkdir -p $(BUILD)/util
@@ -47,11 +63,18 @@ cmd: util_obj core_obj cmd_obj cmd_exe
   $(CC) $(CFLAG_GUI) /Fo"$(BUILD)/gui/imgui/backends/" \
     $(SOURCE)/gui/imgui/backends/imgui_impl_win32.cpp \
     $(SOURCE)/gui/imgui/backends/imgui_impl_dx11.cpp
+!IFDEF FREETYPE
+  mkdir -p $(BUILD)/gui/imgui/misc/freetype
+  $(CC) $(CFLAG_GUI) /Fo"$(BUILD)/gui/imgui/misc/freetype/" \
+    $(SOURCE)/gui/imgui/misc/freetype/imgui_freetype.cpp
+gui_imgui_obj: $(BUILD)/gui/imgui/*.obj $(BUILD)/gui/imgui/backends/*.obj $(BUILD)/gui/imgui/misc/freetype/*.obj
+!ELSE
 gui_imgui_obj: $(BUILD)/gui/imgui/*.obj $(BUILD)/gui/imgui/backends/*.obj
+!ENDIF
 
 {$(SOURCE)\gui\res}.rc{$(BUILD)\gui\res}.res:
   mkdir -p $(BUILD)/gui/res
-  $(RC) $(CFLAG_GUI) /Fo"$@" $<
+  $(RC) $(RFLAG_GUI) /Fo"$@" $<
 gui_res: $(BUILD)/gui/res/main.res
 
 {$(SOURCE)\gui}.cpp{$(BUILD)\gui}.obj:
@@ -67,7 +90,12 @@ gui_obj: $(BUILD)/gui/*.obj
     $(BUILD)/gui/imgui/*.obj \
     $(BUILD)/gui/imgui/backends/*.obj \
     $(BUILD)/gui/res/main.res \
+!IFDEF FREETYPE
+    $(BUILD)/gui/imgui/misc/freetype/*.obj \
+    freetype.lib \
+!ENDIF
     $<
+
 gui_exe: $(BUILD)/gui/WsmGui.exe
 
 gui: cmd gui_imgui_obj gui_obj gui_res gui_exe
@@ -78,5 +106,4 @@ clean:
     $(BUILD)/cmd \
     $(BUILD)/gui \
     $(PROJECT)/log \
-    $(PROJECT)/child \
     $(PROJECT)/imgui.ini
