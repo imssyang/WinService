@@ -155,16 +155,8 @@ void ImGuiBaseWnd::HelpTip(Args... args)
 }
 
 ImGuiServiceWnd::ImGuiServiceWnd(ImGuiEngine* engine)
-    : ImGuiBaseWnd(engine), startupID_(-1)
-    , columnIDs_({"ID", "Name", "Alias", "Type", "Startup", "State", "PID", "Path", "Desc"})
+    : ImGuiBaseWnd(engine), startupID_(-1), stateID_(-1)
 {
-    startupIDs_.push_back(WsmSvcConfig::getStartType(SERVICE_BOOT_START));
-    startupIDs_.push_back(WsmSvcConfig::getStartType(SERVICE_SYSTEM_START));
-    startupIDs_.push_back(WsmSvcConfig::getStartType(SERVICE_AUTO_START));
-    startupIDs_.push_back(WsmSvcConfig::getStartType(SERVICE_DEMAND_START));
-    startupIDs_.push_back(WsmSvcConfig::getStartType(SERVICE_DISABLED));
-    startupIDs_.push_back(WsmSvcConfig::getStartType(-1));
-
     wndFlags_ = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove
         | ImGuiWindowFlags_NoCollapse;
 
@@ -174,14 +166,41 @@ ImGuiServiceWnd::ImGuiServiceWnd(ImGuiEngine* engine)
         | ImGuiTableFlags_BordersV | ImGuiTableFlags_BordersOuterH | ImGuiTableFlags_SizingFixedFit
         | ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY;
 
-    SyncMode();
+    columnIDs_.swap(std::vector<std::string>(
+        {"ID", "Name", "Alias", "Type", "Startup", "State", "PID", "Path", "Desc"}
+    ));
+
+    startupIDs_.swap(std::vector<std::string>({
+        WsmSvcConfig::getStartType(SERVICE_BOOT_START),
+        WsmSvcConfig::getStartType(SERVICE_SYSTEM_START),
+        WsmSvcConfig::getStartType(SERVICE_AUTO_START),
+        WsmSvcConfig::getStartType(SERVICE_DEMAND_START),
+        WsmSvcConfig::getStartType(SERVICE_DISABLED),
+        WsmSvcConfig::getStartType(-1),
+    }));
+
+    stateIDs_.swap(std::vector<std::string>({
+        WsmSvcStatus::getState(SERVICE_CONTINUE_PENDING),
+        WsmSvcStatus::getState(SERVICE_PAUSE_PENDING),
+        WsmSvcStatus::getState(SERVICE_PAUSED),
+        WsmSvcStatus::getState(SERVICE_RUNNING),
+        WsmSvcStatus::getState(SERVICE_START_PENDING),
+        WsmSvcStatus::getState(SERVICE_STOP_PENDING),
+        WsmSvcStatus::getState(SERVICE_STOPPED),
+        WsmSvcStatus::getState(-1),
+    }));
+
+    SyncItems();
 }
 
-void ImGuiServiceWnd::SyncMode()
+void ImGuiServiceWnd::SyncItems()
 {
-    auto mode = GetEngine().GetNavigationWnd().GetMode();
+    items_.clear();
+    auto& navWnd = GetEngine().GetNavigationWnd();
+    auto& filter = navWnd.GetFilter();
+    auto mode = navWnd.GetMode();
+    auto columnID = navWnd.GetColumnID();
     std::vector<WsmSvcStatus> svcStatuses = WsmSvc::Inst().GetServices();
-    std::vector<WsmSvcConfig> svcConfigs;
     for (int i = 0; i < svcStatuses.size(); i++) {
         auto& status = svcStatuses[i];
         WsmApp app(status.serviceName);
@@ -192,39 +211,59 @@ void ImGuiServiceWnd::SyncMode()
         }
 
         auto& config = wscOpt.value();
+        ImGuiServiceItem item(i, status, config);
+        if (filter.IsActive()) {
+            std::string filterText;
+            switch (columnID) {
+            case ColumnID_ID:
+                filterText = std::to_string(item.GetID());
+                break;
+            case ColumnID_Name:
+                filterText = item.GetName();
+                break;
+            case ColumnID_Alias:
+                filterText = item.GetAlias();
+                break;
+            case ColumnID_Type:
+                filterText = item.GetType();
+                break;
+            case ColumnID_Startup:
+                filterText = item.GetStartup();
+                break;
+            case ColumnID_State:
+                filterText = item.GetState();
+                break;
+            case ColumnID_PID:
+                filterText = std::to_string(item.GetPID());
+                break;
+            case ColumnID_Path:
+                filterText = item.GetPath();
+                break;
+            case ColumnID_Desc:
+                filterText = item.GetDesc();
+                break;
+            default:
+                SPDLOG_ERROR("columnID:{} is invalid!", columnID);
+                break;
+            }
+
+            if (!filter.PassFilter(filterText.data())) {
+                continue;
+            }
+        }
+
         if (mode == ImGuiNavigationWnd::Mode_Self) {
             if (config.binaryPathName.find("RunAsService") != std::string::npos) {
-                svcConfigs.push_back(std::move(config));
+                items_.push_back(std::move(item));
             }
         } else if (mode == ImGuiNavigationWnd::Mode_All) {
-            svcConfigs.push_back(std::move(config));
+            items_.push_back(std::move(item));
         }
-    }
-
-    svcStatuses.erase(std::remove_if(
-        svcStatuses.begin(), svcStatuses.end(), [&svcConfigs](const WsmSvcStatus& status) {
-            for (const auto& config : svcConfigs) {
-                if (status.serviceName == config.serviceName) {
-                    return false;
-                }
-            }
-            return true;
-        }
-    ), svcStatuses.end());
-
-    SPDLOG_INFO("configSize: {} statusSize: {}", svcConfigs.size(), svcStatuses.size());
-
-    items_.resize(svcConfigs.size());
-    for (int i = 0; i < svcConfigs.size(); i++) {
-        SPDLOG_WARN("---11---{}: {}-{}", i, svcStatuses[i].serviceName, svcConfigs[i].binaryPathName);
-        items_[i] = std::move(ImGuiServiceItem(i, svcStatuses[i], svcConfigs[i]));
-        SPDLOG_WARN("---22---{}: {}-{}", i, svcStatuses[i].serviceName, items_[i].GetPath());
     }
 }
 
 void ImGuiServiceWnd::Show()
 {
-SPDLOG_WARN("---223333---{}: {}", items_[0].GetName(), items_[0].GetPath());
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
     auto& navWnd = engine_->GetNavigationWnd();
     wndPos_.x = viewport->WorkPos.x;
@@ -253,11 +292,11 @@ SPDLOG_WARN("---223333---{}: {}", items_[0].GetName(), items_[0].GetPath());
         ImGuiTableSortSpecs* sortSpecs = ImGui::TableGetSortSpecs();
         if (sortSpecs) {
             if (sortSpecs->SpecsDirty) {
-                if (items_.Size > 1) {
+                if (items_.size() > 1) {
                     ImGuiServiceItem::Init(sortSpecs);
-                    qsort(&items_[0], (size_t)items_.Size, sizeof(items_[0]), ImGuiServiceItem::Compare);
+                    qsort(&items_[0], (size_t)items_.size(), sizeof(items_[0]), ImGuiServiceItem::Compare);
                     sortSpecs->SpecsDirty = false;
-                    SPDLOG_INFO("qsort: {}", items_.Size);
+                    SPDLOG_INFO("qsort: {}", items_.size());
                 }
             }
         }
@@ -265,7 +304,7 @@ SPDLOG_WARN("---223333---{}: {}", items_[0].GetName(), items_[0].GetPath());
         ImGui::PushButtonRepeat(true);
 
         ImGuiListClipper clipper;
-        clipper.Begin(items_.Size);
+        clipper.Begin(items_.size());
         while (clipper.Step()) {
             for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; row++) {
                 ImGuiServiceItem* item = &items_[row];
@@ -309,8 +348,10 @@ SPDLOG_WARN("---223333---{}: {}", items_[0].GetName(), items_[0].GetPath());
                     ImGui::SetNextItemWidth(charWidth * 15);
                     if (ImGui::BeginCombo("##Startup", startupIDs_[startupID_].data(), ImGuiComboFlags_None)) {
                         for (int i = 0; i < startupIDs_.size(); i++) {
-                            if (i == startupIDs_.size()-1)
+                            if (startupIDs_[i] == WsmSvcConfig::getStartType(-1)
+                                || startupIDs_[i] == WsmSvcConfig::getStartType(SERVICE_BOOT_START)) {
                                 continue;
+                            }
                             bool isSelected = (startupID_ == i);
                             if (ImGui::Selectable(startupIDs_[i].data(), isSelected)) {
                                 if (startupID_ != i) {
@@ -325,17 +366,38 @@ SPDLOG_WARN("---223333---{}: {}", items_[0].GetName(), items_[0].GetPath());
                     }
                 }
                 if (ImGui::TableSetColumnIndex(ImGuiServiceWnd::ColumnID_State)) {
-                    ImGui::TextUnformatted(item->GetState().data());
+                    auto it = std::find(stateIDs_.begin(), stateIDs_.end(), item->GetState());
+                    stateID_ = std::distance(stateIDs_.begin(), it);
+                    ImGui::SetNextItemWidth(charWidth * 15);
+                    if (ImGui::BeginCombo("##State", stateIDs_[stateID_].data(), ImGuiComboFlags_None)) {
+                        for (int i = 0; i < stateIDs_.size(); i++) {
+                            if (stateIDs_[i] == WsmSvcStatus::getState(SERVICE_CONTINUE_PENDING)
+                                || stateIDs_[i] == WsmSvcStatus::getState(SERVICE_PAUSE_PENDING)
+                                || stateIDs_[i] == WsmSvcStatus::getState(SERVICE_START_PENDING)
+                                || stateIDs_[i] == WsmSvcStatus::getState(SERVICE_STOP_PENDING)
+                                || stateIDs_[i] == WsmSvcStatus::getState(-1)) {
+                                continue;
+                            }
+                            bool isSelected = (stateID_ == i);
+                            if (ImGui::Selectable(stateIDs_[i].data(), isSelected)) {
+                                if (stateID_ != i) {
+                                    stateID_ = i;
+                                    SPDLOG_INFO("Select state: {}", stateIDs_[stateID_]);
+                                }
+                            }
+                            if (isSelected)
+                                ImGui::SetItemDefaultFocus();
+                        }
+                        ImGui::EndCombo();
+                    }
                 }
                 if (ImGui::TableSetColumnIndex(ImGuiServiceWnd::ColumnID_PID)) {
                     ImGui::Text("%d", item->GetPID());
                 }
                 if (ImGui::TableSetColumnIndex(ImGuiServiceWnd::ColumnID_Path)) {
                     if (ImGui::Button("Edit")) {
-
                     }
                     ImGui::SameLine();
-                    SPDLOG_INFO("--3333-{}-{}: {}", row, item->GetName(), item->GetPath());
 
                     char* inputBuf = strdup(item->GetPath().data());
                     if (inputBuf) {
@@ -362,7 +424,7 @@ SPDLOG_WARN("---223333---{}: {}", items_[0].GetName(), items_[0].GetPath());
 }
 
 ImGuiNavigationWnd::ImGuiNavigationWnd(ImGuiEngine* engine)
-    : ImGuiBaseWnd(engine), mode_(Mode_Self), columnID_(ImGuiServiceWnd::ColumnID_Name)
+    : ImGuiBaseWnd(engine), mode_(Mode_Self), columnID_(ImGuiServiceWnd::ColumnID_Path)
 {
     wndFlags_ = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove
         | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;
@@ -410,7 +472,7 @@ void ImGuiNavigationWnd::Show()
             if (ImGui::IsItemClicked()) {
                 if (mode_ != Mode_Self) {
                     mode_ = Mode_Self;
-                    GetEngine().GetServiceWnd().SyncMode();
+                    GetEngine().GetServiceWnd().SyncItems();
                 }
             }
             ImGui::SameLine();
@@ -418,7 +480,7 @@ void ImGuiNavigationWnd::Show()
             if (ImGui::IsItemClicked()) {
                 if (mode_ != Mode_All) {
                     mode_ = Mode_All;
-                    GetEngine().GetServiceWnd().SyncMode();
+                    GetEngine().GetServiceWnd().SyncItems();
                 }
             }
         }
@@ -481,31 +543,30 @@ void ImGuiNavigationWnd::Show()
             ImGui::SameLine();
 
             filter_.Draw("##Filter:", wndSize_.x - charWidth * 89);
-            ImGui::SameLine();
-
-            if (filter_.PassFilter("abc")) {
-                HelpTip("PassFilter: ", filter_.InputBuf);
-                ImGui::SameLine();
+            if (ImGui::IsItemFocused() && ImGui::IsKeyPressed(ImGuiKey_Enter)) {
+                GetEngine().GetServiceWnd().SyncItems();
             }
+            ImGui::SameLine();
 
             ImGui::Text("@");
             ImGui::SameLine();
-
             ImGui::SetNextItemWidth(charWidth * 10);
 
             auto& items = engine_->GetServiceWnd().GetColumnIDs();
             if (ImGui::BeginCombo("##Item", items[columnID_].data(), filterComboFlags_)) {
                 for (int i = 0; i < items.size(); i++) {
                     bool isSelected = (columnID_ == i);
-                    if (ImGui::Selectable(items[i].data(), isSelected))
+                    if (ImGui::Selectable(items[i].data(), isSelected)) {
                         columnID_ = i;
+                        GetEngine().GetServiceWnd().SyncItems();
+                    }
 
-                    if (isSelected)
+                    if (isSelected) {
                         ImGui::SetItemDefaultFocus();
+                    }
                 }
                 ImGui::EndCombo();
             }
-            HelpTip("comboIndex: ", columnID_);
         }
 
         ImGui::EndTable();
@@ -662,7 +723,7 @@ void GuiWindow::InitIcon(HWND hwnd)
 
 void GuiWindow::UpdateSize(UINT width, UINT height)
 {
-    SPDLOG_INFO("WndSize: {}x{}", width, height);
+    SPDLOG_DEBUG("WndSize: {}x{}", width, height);
     imgui_->SetMainSize(width, height);
 }
 
@@ -776,9 +837,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                 strcpy_s(lineInfo, "N/A");
             }
 
-            // 打印符号和行号信息
-            SPDLOG_INFO("Stack Frame {}:", i);
-            SPDLOG_INFO("  Line: {}", lineInfo);
+            SPDLOG_INFO("Stack Frame {}:{}", i, lineInfo);
         }
     }
 

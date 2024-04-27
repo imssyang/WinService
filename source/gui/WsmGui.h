@@ -87,15 +87,17 @@ public:
     ImGuiServiceWnd(ImGuiEngine* engine);
 
     const std::vector<std::string>& GetColumnIDs() const { return columnIDs_; }
-    void SyncMode();
+    void SyncItems();
 
     void Show();
 
 private:
+    int startupID_;
+    int stateID_;
     std::vector<std::string> columnIDs_;
     std::vector<std::string> startupIDs_;
-    int startupID_;
-    ImVector<ImGuiServiceItem> items_;
+    std::vector<std::string> stateIDs_;
+    std::vector<ImGuiServiceItem> items_;
     ImVector<int> selection_;
     ImGuiTableFlags servTableFlags_;
 };
@@ -113,7 +115,11 @@ public:
 
     ImGuiNavigationWnd(ImGuiEngine* engine);
 
+    ImGuiTextFilter& GetFilter() { return filter_; }
     Mode GetMode() const { return static_cast<Mode>(mode_); }
+    ImGuiServiceWnd::ColumnID GetColumnID() const {
+        return static_cast<ImGuiServiceWnd::ColumnID>(columnID_);
+    }
 
     void Show();
 

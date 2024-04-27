@@ -102,7 +102,15 @@ struct WsmSvcStatus : public WsmSvcBase
     }
 
     std::string getCurrentState() const {
-        switch (currentState) {
+        return getState(currentState);
+    }
+
+    bool isRunInSystemProcess() {
+        return bool(serviceFlags & SERVICE_RUNS_IN_SYSTEM_PROCESS);
+    }
+
+    static std::string getState(unsigned long state) {
+        switch (state) {
             case SERVICE_CONTINUE_PENDING:
                 return "ContinuePending";
             case SERVICE_PAUSE_PENDING:
@@ -117,12 +125,9 @@ struct WsmSvcStatus : public WsmSvcBase
                 return "StopPending";
             case SERVICE_STOPPED:
                 return "Stopped";
-            default: return "Unknown";
+            default:
+                return "Unknown";
         }
-    }
-
-    bool isRunInSystemProcess() {
-        return bool(serviceFlags & SERVICE_RUNS_IN_SYSTEM_PROCESS);
     }
 };
 
@@ -184,4 +189,3 @@ struct WsmSvcConfig : public WsmSvcBase
 void InitSpdlog(bool isGui, bool enableFile);
 std::string UTF8toANSI(const std::string& utf8);
 std::string ANSItoUTF8(const std::string& gbk);
-void PrintStackTrace();
