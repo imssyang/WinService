@@ -502,21 +502,27 @@ void ImGuiNavigationWnd::Show()
             ImGui::SameLine();
 
             if (ImGui::Button("Add", ImVec2(60, 0)))
-                ImGui::OpenPopup("Service Properties");
+                ImGui::OpenPopup("New Service Properties");
 
-            if (ImGui::BeginPopupModal("Service Properties")) {
-                static char str1[128] = "1234bdet";
-                ImGui::InputTextWithHint("SvcName", "enter text here", str1, IM_ARRAYSIZE(str1));
-                ImGui::SameLine();
-                ImGui::Text("Name:");
+            if (ImGui::BeginPopupModal("New Service Properties", NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
+                char str1[128] = "";
+                ImGui::InputTextWithHint("Name", "service's name", str1, IM_ARRAYSIZE(str1));
 
-                ImGui::Text("Alias:");
-                ImGui::Text("Type:");
-                ImGui::Text("Startup:");
-                ImGui::Text("Path:");
-                ImGui::Text("Description:");
-                ImGui::SameLine();
-                ImGui::InputText("##SvcDesc", "1234bd99", 9, ImGuiInputTextFlags_ReadOnly);
+                char alias[128] = "";
+                ImGui::InputTextWithHint("Alias", "service's alias", alias, IM_ARRAYSIZE(alias), ImGuiInputTextFlags_ReadOnly);
+                ImGui::InputTextWithHint("Type", "enter service's type", str1, IM_ARRAYSIZE(str1));
+                ImGui::InputTextWithHint("Startup", "enter service's startup", str1, IM_ARRAYSIZE(str1));
+                ImGui::InputTextWithHint("Path", "enter service's path", str1, IM_ARRAYSIZE(str1));
+
+                char desc[1024] = "123";
+                ImGui::InputTextMultiline("Description", desc, IM_ARRAYSIZE(desc),
+                    ImVec2(0, ImGui::GetTextLineHeight() * 5),
+                    ImGuiInputTextFlags_AllowTabInput);
+
+                static bool dont_ask_me_next_time = false;
+                ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
+                ImGui::Checkbox("Don't ask me next time", &dont_ask_me_next_time);
+                ImGui::PopStyleVar();
                 ImGui::Separator();
 
                 if (ImGui::Button("OK", ImVec2(120, 0))) {
