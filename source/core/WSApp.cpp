@@ -132,14 +132,24 @@ svc_cleanup:
     return std::move(result);
 }
 
-bool WSApp::Enable()
+bool WSApp::SetStartup(DWORD type)
 {
-    return SetStartup(SERVICE_AUTO_START);
-}
+    WSHandle wsHandle(SC_MANAGER_CREATE_SERVICE, SERVICE_CHANGE_CONFIG, name_);
+    if (!wsHandle.Check())
+        return false;
 
-bool WSApp::Disable()
-{
-    return SetStartup(SERVICE_DISABLED);
+    if (!ChangeServiceConfig(
+            wsHandle.Service,
+            SERVICE_NO_CHANGE,
+            type,
+            SERVICE_NO_CHANGE,
+            NULL, NULL, NULL, NULL, NULL, NULL, NULL)) {
+        SPDLOG_ERROR("ChangeServiceConfig failed! WinApi@");
+        return false;
+    }
+
+    SPDLOG_INFO("Service enabled successfully.");
+    return true;
 }
 
 bool WSApp::Start()
@@ -187,7 +197,7 @@ bool WSApp::Start()
     }
 
     if (!::StartService(wsHandle.Service, 0, NULL)) {
-        SPDLOG_ERROR("StartService failed.");
+        SPDLOG_ERROR("StartService failed! WinApi@");
         return false;
     }
 
@@ -408,29 +418,9 @@ dacl_cleanup:
     return result;
 }
 
-bool WSApp::SetStartup(DWORD type)
-{
-    WSHandle wsHandle(SC_MANAGER_CREATE_SERVICE, SERVICE_CHANGE_CONFIG, name_);
-    if (!wsHandle.Check())
-        return false;
-
-    if (!ChangeServiceConfig(
-            wsHandle.Service,
-            SERVICE_NO_CHANGE,
-            type,
-            SERVICE_NO_CHANGE,
-            NULL, NULL, NULL, NULL, NULL, NULL, NULL)) {
-        SPDLOG_ERROR("ChangeServiceConfig failed! WinApi@");
-        return false;
-    }
-
-    SPDLOG_INFO("Service enabled successfully.");
-    return true;
-}
-
 std::optional<WSvcStatus> WSApp::GetStatus()
 {
-    WSHandle wsHandle(SC_MANAGER_CREATE_SERVICE, SERVICE_CHANGE_CONFIG, name_);
+    WSHandle wsHandle(SC_MANAGER_ENUMERATE_SERVICE, SERVICE_QUERY_STATUS, name_);
     if (!wsHandle.Check())
         return std::nullopt;
 

@@ -12,8 +12,7 @@ public:
     bool Uninstall();
     bool Start();
     bool Stop();
-    bool Enable();
-    bool Disable();
+    bool SetStartup(DWORD type = SERVICE_DEMAND_START);
     std::optional<WSvcStatus> GetStatus();
     std::optional<WSvcConfig> GetConfig(bool hasDesc = false);
     std::vector<WSvcStatus> GetDependents();
@@ -24,7 +23,6 @@ public:
     virtual std::string GetPath() const { return path_; }
 
 private:
-    bool SetStartup(DWORD type);
     bool StopDependents(SC_HANDLE manager);
 
 private:

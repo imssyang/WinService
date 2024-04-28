@@ -260,6 +260,7 @@ void ImGuiServiceWnd::SyncItems()
             items_.push_back(std::move(item));
         }
     }
+    SPDLOG_INFO("SyncItems: {}", items_.size());
 }
 
 void ImGuiServiceWnd::Show()
@@ -307,56 +308,60 @@ void ImGuiServiceWnd::Show()
         clipper.Begin(items_.size());
         while (clipper.Step()) {
             for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; row++) {
-                ImGuiServiceItem* item = &items_[row];
+                ImGuiServiceItem& item = items_[row];
                 ImGui::TableNextRow();
-                ImGui::PushID(item->GetID());
+                ImGui::PushID(item.GetID());
 
                 if (ImGui::TableSetColumnIndex(ImGuiServiceWnd::ColumnID_ID)) {
                     std::stringstream id;
-                    id << item->GetID() + 1;
+                    id << item.GetID() + 1;
 
-                    bool isSelected = selection_.contains(item->GetID());
+                    bool isSelected = selection_.contains(item.GetID());
                     ImGuiSelectableFlags selectFlags = ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap;
                     if (ImGui::Selectable(id.str().data(), isSelected, selectFlags)) {
                         if (ImGui::GetIO().KeyCtrl) {
                             if (isSelected) {
-                                selection_.find_erase_unsorted(item->GetID());
+                                selection_.find_erase_unsorted(item.GetID());
                             } else {
-                                selection_.push_back(item->GetID());
+                                selection_.push_back(item.GetID());
                             }
                         } else {
                             selection_.clear();
-                            selection_.push_back(item->GetID());
+                            selection_.push_back(item.GetID());
                         }
                     }
                 }
 
                 if (ImGui::TableSetColumnIndex(ImGuiServiceWnd::ColumnID_Name))
-                    ImGui::TextUnformatted(item->GetName().data());
+                    ImGui::TextUnformatted(item.GetName().data());
 
                 if (ImGui::TableSetColumnIndex(ImGuiServiceWnd::ColumnID_Alias)) {
-                    ImGui::TextUnformatted(item->GetAlias().data());
+                    ImGui::TextUnformatted(item.GetAlias().data());
                 }
 
                 if (ImGui::TableSetColumnIndex(ImGuiServiceWnd::ColumnID_Type)) {
-                    ImGui::TextUnformatted(item->GetType().data());
+                    ImGui::TextUnformatted(item.GetType().data());
                 }
 
                 if (ImGui::TableSetColumnIndex(ImGuiServiceWnd::ColumnID_Startup)) {
-                    auto it = std::find(startupIDs_.begin(), startupIDs_.end(), item->GetStartup());
+                    auto it = std::find(startupIDs_.begin(), startupIDs_.end(), item.GetStartup());
                     startupID_ = std::distance(startupIDs_.begin(), it);
                     ImGui::SetNextItemWidth(charWidth * 15);
                     if (ImGui::BeginCombo("##Startup", startupIDs_[startupID_].data(), ImGuiComboFlags_None)) {
                         for (int i = 0; i < startupIDs_.size(); i++) {
                             if (startupIDs_[i] == WSvcConfig::GetStartType(-1)
-                                || startupIDs_[i] == WSvcConfig::GetStartType(SERVICE_BOOT_START)) {
+                                || startupIDs_[i] == WSvcConfig::GetStartType(SERVICE_BOOT_START)
+                                || startupIDs_[i] == WSvcConfig::GetStartType(SERVICE_SYSTEM_START)) {
                                 continue;
                             }
                             bool isSelected = (startupID_ == i);
                             if (ImGui::Selectable(startupIDs_[i].data(), isSelected)) {
                                 if (startupID_ != i) {
+                                    SPDLOG_INFO("{} startup: {} -> {}", item.GetName(), startupIDs_[startupID_], startupIDs_[i]);
+                                    WSApp app(item.GetName());
+                                    app.SetStartup(WSvcConfig::GetStartType(startupIDs_[i]));
+                                    SyncItems();
                                     startupID_ = i;
-                                    SPDLOG_INFO("Select startup: {}", startupIDs_[startupID_]);
                                 }
                             }
                             if (isSelected)
@@ -366,7 +371,7 @@ void ImGuiServiceWnd::Show()
                     }
                 }
                 if (ImGui::TableSetColumnIndex(ImGuiServiceWnd::ColumnID_State)) {
-                    auto it = std::find(stateIDs_.begin(), stateIDs_.end(), item->GetState());
+                    auto it = std::find(stateIDs_.begin(), stateIDs_.end(), item.GetState());
                     stateID_ = std::distance(stateIDs_.begin(), it);
                     ImGui::SetNextItemWidth(charWidth * 15);
                     if (ImGui::BeginCombo("##State", stateIDs_[stateID_].data(), ImGuiComboFlags_None)) {
@@ -375,14 +380,21 @@ void ImGuiServiceWnd::Show()
                                 || stateIDs_[i] == WSvcStatus::GetState(SERVICE_PAUSE_PENDING)
                                 || stateIDs_[i] == WSvcStatus::GetState(SERVICE_START_PENDING)
                                 || stateIDs_[i] == WSvcStatus::GetState(SERVICE_STOP_PENDING)
+                                || stateIDs_[i] == WSvcStatus::GetState(SERVICE_PAUSED)
                                 || stateIDs_[i] == WSvcStatus::GetState(-1)) {
                                 continue;
                             }
                             bool isSelected = (stateID_ == i);
                             if (ImGui::Selectable(stateIDs_[i].data(), isSelected)) {
                                 if (stateID_ != i) {
+                                    SPDLOG_INFO("{} state: {} -> {}", item.GetName(), stateIDs_[stateID_], stateIDs_[i]);
+                                    WSApp app(item.GetName());
+                                    if (stateIDs_[i] == WSvcStatus::GetState(SERVICE_RUNNING))
+                                        app.Start();
+                                    else if (stateIDs_[i] == WSvcStatus::GetState(SERVICE_STOPPED))
+                                        app.Stop();
+                                    SyncItems();
                                     stateID_ = i;
-                                    SPDLOG_INFO("Select state: {}", stateIDs_[stateID_]);
                                 }
                             }
                             if (isSelected)
@@ -392,24 +404,24 @@ void ImGuiServiceWnd::Show()
                     }
                 }
                 if (ImGui::TableSetColumnIndex(ImGuiServiceWnd::ColumnID_PID)) {
-                    ImGui::Text("%d", item->GetPID());
+                    ImGui::Text("%d", item.GetPID());
                 }
                 if (ImGui::TableSetColumnIndex(ImGuiServiceWnd::ColumnID_Path)) {
                     if (ImGui::Button("Edit")) {
                     }
                     ImGui::SameLine();
 
-                    char* inputBuf = strdup(item->GetPath().data());
+                    char* inputBuf = strdup(item.GetPath().data());
                     if (inputBuf) {
                         ImGui::SameLine();
                         ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x);
-                        ImGui::InputText("##Path", inputBuf, item->GetPath().length() + 1, ImGuiInputTextFlags_ReadOnly);
+                        ImGui::InputText("##Path", inputBuf, item.GetPath().length() + 1, ImGuiInputTextFlags_ReadOnly);
                         ImGui::PopItemWidth();
                         free(inputBuf);
                     }
                 }
                 if (ImGui::TableSetColumnIndex(ImGuiServiceWnd::ColumnID_Desc)) {
-                    ImGui::TextUnformatted(item->GetDesc().data());
+                    ImGui::TextUnformatted(item.GetDesc().data());
                 }
 
                 ImGui::PopID();
@@ -490,12 +502,21 @@ void ImGuiNavigationWnd::Show()
             ImGui::SameLine();
 
             if (ImGui::Button("Add", ImVec2(60, 0)))
-                ImGui::OpenPopup("Service properties");
+                ImGui::OpenPopup("Service Properties");
 
-            if (ImGui::BeginPopupModal("Service properties")) {
-                // TODO
-                ImGui::Text("todo!");
+            if (ImGui::BeginPopupModal("Service Properties")) {
+                static char str1[128] = "1234bdet";
+                ImGui::InputTextWithHint("SvcName", "enter text here", str1, IM_ARRAYSIZE(str1));
+                ImGui::SameLine();
+                ImGui::Text("Name:");
 
+                ImGui::Text("Alias:");
+                ImGui::Text("Type:");
+                ImGui::Text("Startup:");
+                ImGui::Text("Path:");
+                ImGui::Text("Description:");
+                ImGui::SameLine();
+                ImGui::InputText("##SvcDesc", "1234bd99", 9, ImGuiInputTextFlags_ReadOnly);
                 ImGui::Separator();
 
                 if (ImGui::Button("OK", ImVec2(120, 0))) {

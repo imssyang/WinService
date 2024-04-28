@@ -33,6 +33,8 @@ public:
 
     ImGuiServiceItem(int id, WSvcStatus status, WSvcConfig config);
     int GetID() const { return id_; }
+    const WSvcStatus& GetSvcStatus() const { return status_; }
+    const WSvcConfig& GetSvcConfig() const { return config_; }
     std::string GetName() const { return status_.serviceName; }
     std::string GetAlias() const { return status_.displayName; }
     std::string GetType() const { return status_.GetServiceType(); }

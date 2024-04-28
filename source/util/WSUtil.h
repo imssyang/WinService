@@ -186,6 +186,21 @@ struct WSvcConfig : public WSvcBase
                 return "Unknown";
         }
     }
+
+    static unsigned long GetStartType(const std::string& startType) {
+        if (startType == "Boot")
+            return SERVICE_BOOT_START;
+        else if (startType == "System")
+            return SERVICE_SYSTEM_START;
+        else if (startType == "Automatic")
+            return SERVICE_AUTO_START;
+        else if (startType == "Manual")
+            return SERVICE_DEMAND_START;
+        else if (startType == "Disabled")
+            return SERVICE_DISABLED;
+        else
+            return 0;
+    }
 };
 
 std::string UTF8toANSI(const std::string& utf8);
