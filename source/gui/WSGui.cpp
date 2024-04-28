@@ -1,8 +1,8 @@
 #include "gui/resource.h"
-#include "gui/WsmGui.h"
-#include "core/WsmSvc.h"
-#include "core/WsmApp.h"
-#include "cmd/WsmCmd.h"
+#include "gui/WSGui.h"
+#include "core/WSGeneral.h"
+#include "core/WSApp.h"
+#include "cmd/WSCmd.h"
 #include "imgui/imgui.h"
 #include "imgui/backends/imgui_impl_win32.h"
 #include "imgui/backends/imgui_impl_dx11.h"
@@ -133,7 +133,7 @@ int ImGuiServiceItem::Compare(const void* lhs, const void* rhs)
     return (a->GetID() - b->GetID());
 }
 
-ImGuiServiceItem::ImGuiServiceItem(int id, WsmSvcStatus status, WsmSvcConfig config)
+ImGuiServiceItem::ImGuiServiceItem(int id, WSvcStatus status, WSvcConfig config)
     : id_(id), status_(std::move(status)), config_(std::move(config))
 {
 }
@@ -171,23 +171,23 @@ ImGuiServiceWnd::ImGuiServiceWnd(ImGuiEngine* engine)
     ));
 
     startupIDs_.swap(std::vector<std::string>({
-        WsmSvcConfig::getStartType(SERVICE_BOOT_START),
-        WsmSvcConfig::getStartType(SERVICE_SYSTEM_START),
-        WsmSvcConfig::getStartType(SERVICE_AUTO_START),
-        WsmSvcConfig::getStartType(SERVICE_DEMAND_START),
-        WsmSvcConfig::getStartType(SERVICE_DISABLED),
-        WsmSvcConfig::getStartType(-1),
+        WSvcConfig::GetStartType(SERVICE_BOOT_START),
+        WSvcConfig::GetStartType(SERVICE_SYSTEM_START),
+        WSvcConfig::GetStartType(SERVICE_AUTO_START),
+        WSvcConfig::GetStartType(SERVICE_DEMAND_START),
+        WSvcConfig::GetStartType(SERVICE_DISABLED),
+        WSvcConfig::GetStartType(-1),
     }));
 
     stateIDs_.swap(std::vector<std::string>({
-        WsmSvcStatus::getState(SERVICE_CONTINUE_PENDING),
-        WsmSvcStatus::getState(SERVICE_PAUSE_PENDING),
-        WsmSvcStatus::getState(SERVICE_PAUSED),
-        WsmSvcStatus::getState(SERVICE_RUNNING),
-        WsmSvcStatus::getState(SERVICE_START_PENDING),
-        WsmSvcStatus::getState(SERVICE_STOP_PENDING),
-        WsmSvcStatus::getState(SERVICE_STOPPED),
-        WsmSvcStatus::getState(-1),
+        WSvcStatus::GetState(SERVICE_CONTINUE_PENDING),
+        WSvcStatus::GetState(SERVICE_PAUSE_PENDING),
+        WSvcStatus::GetState(SERVICE_PAUSED),
+        WSvcStatus::GetState(SERVICE_RUNNING),
+        WSvcStatus::GetState(SERVICE_START_PENDING),
+        WSvcStatus::GetState(SERVICE_STOP_PENDING),
+        WSvcStatus::GetState(SERVICE_STOPPED),
+        WSvcStatus::GetState(-1),
     }));
 
     SyncItems();
@@ -200,10 +200,10 @@ void ImGuiServiceWnd::SyncItems()
     auto& filter = navWnd.GetFilter();
     auto mode = navWnd.GetMode();
     auto columnID = navWnd.GetColumnID();
-    std::vector<WsmSvcStatus> svcStatuses = WsmSvc::Inst().GetServices();
+    std::vector<WSvcStatus> svcStatuses = WSGeneral::Inst().GetServices();
     for (int i = 0; i < svcStatuses.size(); i++) {
         auto& status = svcStatuses[i];
-        WsmApp app(status.serviceName);
+        WSApp app(status.serviceName);
         auto wscOpt = app.GetConfig(true);
         if (!wscOpt) {
             SPDLOG_WARN("{} get config failed!", status.serviceName);
@@ -348,8 +348,8 @@ void ImGuiServiceWnd::Show()
                     ImGui::SetNextItemWidth(charWidth * 15);
                     if (ImGui::BeginCombo("##Startup", startupIDs_[startupID_].data(), ImGuiComboFlags_None)) {
                         for (int i = 0; i < startupIDs_.size(); i++) {
-                            if (startupIDs_[i] == WsmSvcConfig::getStartType(-1)
-                                || startupIDs_[i] == WsmSvcConfig::getStartType(SERVICE_BOOT_START)) {
+                            if (startupIDs_[i] == WSvcConfig::GetStartType(-1)
+                                || startupIDs_[i] == WSvcConfig::GetStartType(SERVICE_BOOT_START)) {
                                 continue;
                             }
                             bool isSelected = (startupID_ == i);
@@ -371,11 +371,11 @@ void ImGuiServiceWnd::Show()
                     ImGui::SetNextItemWidth(charWidth * 15);
                     if (ImGui::BeginCombo("##State", stateIDs_[stateID_].data(), ImGuiComboFlags_None)) {
                         for (int i = 0; i < stateIDs_.size(); i++) {
-                            if (stateIDs_[i] == WsmSvcStatus::getState(SERVICE_CONTINUE_PENDING)
-                                || stateIDs_[i] == WsmSvcStatus::getState(SERVICE_PAUSE_PENDING)
-                                || stateIDs_[i] == WsmSvcStatus::getState(SERVICE_START_PENDING)
-                                || stateIDs_[i] == WsmSvcStatus::getState(SERVICE_STOP_PENDING)
-                                || stateIDs_[i] == WsmSvcStatus::getState(-1)) {
+                            if (stateIDs_[i] == WSvcStatus::GetState(SERVICE_CONTINUE_PENDING)
+                                || stateIDs_[i] == WSvcStatus::GetState(SERVICE_PAUSE_PENDING)
+                                || stateIDs_[i] == WSvcStatus::GetState(SERVICE_START_PENDING)
+                                || stateIDs_[i] == WSvcStatus::GetState(SERVICE_STOP_PENDING)
+                                || stateIDs_[i] == WSvcStatus::GetState(-1)) {
                                 continue;
                             }
                             bool isSelected = (stateID_ == i);
@@ -750,7 +750,7 @@ void GuiWindow::PollMessage()
 
 int GuiMain(int argc, char *argv[])
 {
-    GuiWindow gui(UTF8toANSI("WinServiceManager"), 100, 100, 1280, 800);
+    GuiWindow gui(UTF8toANSI("WinService"), 100, 100, 1280, 800);
     gui.PollMessage();
     return 0;
 }
@@ -811,11 +811,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     __try
     {
-        //SC_HANDLE manager_ = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
-        //if (!manager_) {
-        //    SPDLOG_ERROR("-----1234--OpenSCManager({0:X}) failed! WinApi@", STANDARD_RIGHTS_REQUIRED| SC_MANAGER_CONNECT|SC_MANAGER_ENUMERATE_SERVICE);
-        //    return 0;
-        //}
         if (__argc > 1) {
             ConsoleMainProxy(__argc, __argv);
         } else {
@@ -824,26 +819,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     }
     __except(ExceptionHandler(GetExceptionInformation()))
     {
-        SPDLOG_INFO("Exception");
-
-        //#define MAX_STACK_FRAMES 1024
-        //void* stackFrames[MAX_STACK_FRAMES];
-        //WORD numberOfFrames = CaptureStackBackTrace(0, MAX_STACK_FRAMES, stackFrames, NULL);
-        //for (WORD i = 0; i < numberOfFrames; ++i) {
-        //    DWORD64 stackAddress = (DWORD64)(stackFrames[i]);
-        //    DWORD64 displacement = 0;
-        //    SymFromAddr(currentProcess, stackAddress, &displacement, NULL);
-        //    CHAR lineInfo[MAX_PATH];
-        //    DWORD lineDisplacement = 0;
-        //    IMAGEHLP_LINE lineHlp;
-        //    lineHlp.SizeOfStruct = sizeof(IMAGEHLP_LINE);
-        //    if (SymGetLineFromAddr(currentProcess, stackAddress, &lineDisplacement, &lineHlp)) {
-        //        sprintf_s(lineInfo, "%s:%lu", lineHlp.FileName, lineHlp.LineNumber);
-        //    } else {
-        //        strcpy_s(lineInfo, "N/A");
-        //    }
-        //    SPDLOG_INFO("Stack Frame {}:{}", i, lineInfo);
-        //}
+        SPDLOG_ERROR("Exception at WinMain!");
     }
 
     return 0;

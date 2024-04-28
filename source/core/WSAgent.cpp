@@ -1,11 +1,11 @@
-#include "util/WsmArg.h"
-#include "core/WsmAgent.h"
-#include "core/WsmSvc.h"
+#include "util/WSArg.h"
+#include "core/WSAgent.h"
+#include "core/WSGeneral.h"
 
 #pragma comment(lib, "User32.lib")
 
-WsmAgent::WsmAgent(const std::string& name, const std::string& alias):
-    WsmApp(name, alias),
+WSAgent::WSAgent(const std::string& name, const std::string& alias):
+    WSApp(name, alias),
     stopEvent_(NULL),
     svcStatusHandle_(NULL),
     stdOutRead_(NULL),
@@ -13,7 +13,7 @@ WsmAgent::WsmAgent(const std::string& name, const std::string& alias):
 {
 }
 
-WsmAgent::~WsmAgent()
+WSAgent::~WSAgent()
 {
     if (stdOutWrite_)
         CloseHandle(stdOutWrite_);
@@ -21,7 +21,7 @@ WsmAgent::~WsmAgent()
         CloseHandle(stdOutRead_);
 }
 
-bool WsmAgent::Install(const std::string& path)
+bool WSAgent::Install(const std::string& path)
 {
     CHAR unquotedPath[MAX_PATH];
     if (!GetModuleFileName(NULL, unquotedPath, MAX_PATH)) {
@@ -35,10 +35,10 @@ bool WsmAgent::Install(const std::string& path)
 	agentPath += GetName();
 	agentPath += "\" ";
 	agentPath += path;
-    return WsmApp::Install(agentPath);
+    return WSApp::Install(agentPath);
 }
 
-std::string WsmAgent::GetPath() const
+std::string WSAgent::GetPath() const
 {
     std::string path;
     auto& cmd = ArgManager::Inst().Get("/RunAsService");
@@ -54,7 +54,7 @@ std::string WsmAgent::GetPath() const
     return path;
 }
 
-void WsmAgent::Dispatch()
+void WSAgent::Dispatch()
 {
     SERVICE_TABLE_ENTRY tableEntry[] = {
         {(LPTSTR)GetName().data(), ServiceMainProc},
@@ -66,10 +66,10 @@ void WsmAgent::Dispatch()
     }
 }
 
-VOID WINAPI WsmAgent::ServiceMainProc(DWORD argc, LPTSTR *argv)
+VOID WINAPI WSAgent::ServiceMainProc(DWORD argc, LPTSTR *argv)
 {
     std::string name = (LPSTR)argv[0];
-    auto& app = WsmAgent(name);
+    auto& app = WSAgent(name);
     app.GetConfig();
 
     app.svcStatusHandle_ = RegisterServiceCtrlHandlerEx(
@@ -157,13 +157,13 @@ VOID WINAPI WsmAgent::ServiceMainProc(DWORD argc, LPTSTR *argv)
     }
 }
 
-DWORD WINAPI WsmAgent::CtrlHandlerProc(
+DWORD WINAPI WSAgent::CtrlHandlerProc(
     DWORD control,
     DWORD eventType,
     LPVOID eventData,
     LPVOID context)
 {
-    WsmAgent& app = *(WsmAgent*)context;
+    WSAgent& app = *(WSAgent*)context;
     switch (control) {
         case SERVICE_CONTROL_STOP:
             app.SetStatus(SERVICE_STOP_PENDING, NO_ERROR, 0);
@@ -180,9 +180,9 @@ DWORD WINAPI WsmAgent::CtrlHandlerProc(
     return 0;
 }
 
-DWORD WINAPI WsmAgent::StdReadThread(LPVOID lpParam)
+DWORD WINAPI WSAgent::StdReadThread(LPVOID lpParam)
 {
-    auto& app = *reinterpret_cast<WsmAgent*>(lpParam);
+    auto& app = *reinterpret_cast<WSAgent*>(lpParam);
     CHAR chBuf[2048];
     DWORD dwRead;
     for (int count = 0;; count++) {
@@ -201,14 +201,14 @@ DWORD WINAPI WsmAgent::StdReadThread(LPVOID lpParam)
     return 0;
 }
 
-BOOL CALLBACK WsmAgent::WindowCloserProc(HWND hWnd, LPARAM lParam)
+BOOL CALLBACK WSAgent::WindowCloserProc(HWND hWnd, LPARAM lParam)
 {
     if ((GetWindowThreadProcessId(hWnd, NULL) == lParam) && !(GetWindowLong(hWnd, GWL_STYLE) & WS_CHILD))
         PostMessage(hWnd, WM_CLOSE, 0, 0);
     return TRUE;
 }
 
-bool WsmAgent::SetStatus(DWORD currentState, DWORD win32ExitCode, DWORD waitHint)
+bool WSAgent::SetStatus(DWORD currentState, DWORD win32ExitCode, DWORD waitHint)
 {
     static DWORD dwCheckPoint = 1;
 

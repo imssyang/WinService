@@ -4,7 +4,7 @@ RC = rc /v
 CC = cl /c /nologo
 LINK = link /nologo
 
-PROGRAM = wsm
+PROGRAM = winsvc
 PROJECT = .
 BUILD = $(PROJECT)/build
 SOURCE = $(PROJECT)/source
@@ -53,7 +53,7 @@ cmd_obj: $(BUILD)/cmd/*.obj
     $(BUILD)/util/*.obj \
     $(BUILD)/core/*.obj \
     $<
-cmd_exe: $(BUILD)/cmd/WsmCmd.exe
+cmd_exe: $(BUILD)/cmd/WSCmd.exe
 
 cmd: util_obj core_obj cmd_obj cmd_exe
 
@@ -96,7 +96,7 @@ gui_obj: $(BUILD)/gui/*.obj
 !ENDIF
     $<
 
-gui_exe: $(BUILD)/gui/WsmGui.exe
+gui_exe: $(BUILD)/gui/WSGui.exe
 
 gui: cmd gui_imgui_obj gui_obj gui_res gui_exe
 
@@ -106,4 +106,5 @@ clean:
     $(BUILD)/cmd \
     $(BUILD)/gui \
     $(PROJECT)/log \
-    $(PROJECT)/imgui.ini
+    $(PROJECT)/imgui.ini \
+    $(PROJECT)/*.pdb

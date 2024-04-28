@@ -1,7 +1,7 @@
 #pragma once
 
 #include "argparse/argparse.hpp"
-#include "util/WsmUtil.h"
+#include "util/WSUtil.h"
 
 class ArgManager
 {

@@ -1,7 +1,7 @@
 #include "tabulate/table.hpp"
-#include "util/WsmArg.h"
-#include "core/WsmSvc.h"
-#include "core/WsmAgent.h"
+#include "util/WSArg.h"
+#include "core/WSGeneral.h"
+#include "core/WSAgent.h"
 
 int ConsoleMain(int argc, char *argv[], bool hasConsole)
 {
@@ -14,32 +14,32 @@ int ConsoleMain(int argc, char *argv[], bool hasConsole)
         auto path = cmd.get<std::string>("--path");
         bool is_agent = cmd.is_used("--agent");
         if (is_agent) {
-            WsmAgent app(name, alias);
+            WSAgent app(name, alias);
             app.Install(path);
             app.SetDescription(desc);
         } else {
-            WsmApp app(name, alias);
+            WSApp app(name, alias);
             app.Install(path);
             app.SetDescription(desc);
         }
     } else if (m.is_subcommand_used("uninstall")) {
         auto& cmd = ArgManager::Inst().Get("uninstall");
         auto name = cmd.get<std::string>("name");
-        WsmApp app(name);
+        WSApp app(name);
         app.Uninstall();
     } else if (m.is_subcommand_used("start")) {
         auto& cmd = ArgManager::Inst().Get("start");
         auto name = cmd.get<std::string>("name");
-        WsmApp app(name);
+        WSApp app(name);
         app.Start();
     } else if (m.is_subcommand_used("stop")) {
         auto& cmd = ArgManager::Inst().Get("stop");
         auto name = cmd.get<std::string>("name");
-        WsmApp app(name);
+        WSApp app(name);
         app.Stop();
     } else if (m.is_subcommand_used("list")) {
         auto& cmd = ArgManager::Inst().Get("list");
-        auto services = WsmSvc::Inst().GetServices();
+        auto services = WSGeneral::Inst().GetServices();
 
         tabulate::Table services_table;
         services_table.format().multi_byte_characters(true);
@@ -56,7 +56,7 @@ int ConsoleMain(int argc, char *argv[], bool hasConsole)
         services_table.column(6).format().width(15);
 
         for (auto& s : services) {
-            WsmApp app(s.serviceName);
+            WSApp app(s.serviceName);
             auto wscopt = app.GetConfig();
             if (!wscopt)
                 continue;
@@ -70,15 +70,15 @@ int ConsoleMain(int argc, char *argv[], bool hasConsole)
             }
 
             services_table.add_row({s.serviceName, s.displayName,
-                s.getServiceType(), s.getCurrentState(), std::to_string(s.processId),
-                config.binaryPathName, config.getStartType()});
+                s.GetServiceType(), s.GetCurrentState(), std::to_string(s.processId),
+                config.binaryPathName, config.GetStartType()});
         }
 
         SPDLOG_COUT(ANSItoUTF8(services_table.str()));
     } else if (m.is_subcommand_used("/RunAsService")) {
         auto& cmd = ArgManager::Inst().Get("/RunAsService");
         auto name = cmd.get<std::string>("name");
-        WsmAgent app(name);
+        WSAgent app(name);
         app.Dispatch();
     } else {
         SPDLOG_COUT(m.help().str());

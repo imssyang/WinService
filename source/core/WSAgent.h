@@ -1,12 +1,12 @@
 #pragma once
 
-#include "core/WsmApp.h"
+#include "core/WSApp.h"
 
-class WsmAgent : public WsmApp
+class WSAgent : public WSApp
 {
 public:
-    WsmAgent(const std::string& name, const std::string& alias = "");
-    ~WsmAgent();
+    WSAgent(const std::string& name, const std::string& alias = "");
+    ~WSAgent();
 
     bool Install(const std::string& path) override;
     void Dispatch();

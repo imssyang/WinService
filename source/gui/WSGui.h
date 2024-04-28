@@ -1,7 +1,7 @@
 #pragma once
 
 #include <d3d11.h>
-#include "util/WsmUtil.h"
+#include "util/WSUtil.h"
 #include "imgui/imgui.h"
 
 class D3D11Device
@@ -31,21 +31,21 @@ public:
     static void Init(const ImGuiTableSortSpecs* sortSpecs);
     static int Compare(const void* lhs, const void* rhs);
 
-    ImGuiServiceItem(int id, WsmSvcStatus status, WsmSvcConfig config);
+    ImGuiServiceItem(int id, WSvcStatus status, WSvcConfig config);
     int GetID() const { return id_; }
     std::string GetName() const { return status_.serviceName; }
     std::string GetAlias() const { return status_.displayName; }
-    std::string GetType() const { return status_.getServiceType(); }
-    std::string GetStartup() const { return config_.getStartType(); }
-    std::string GetState() const { return status_.getCurrentState(); }
+    std::string GetType() const { return status_.GetServiceType(); }
+    std::string GetStartup() const { return config_.GetStartType(); }
+    std::string GetState() const { return status_.GetCurrentState(); }
     uint32_t GetPID() const { return (uint32_t) status_.processId; }
     std::string GetPath() const { return config_.binaryPathName; }
     std::string GetDesc() const { return ANSItoUTF8(config_.description); }
 
 private:
     int id_;
-    WsmSvcStatus status_;
-    WsmSvcConfig config_;
+    WSvcStatus status_;
+    WSvcConfig config_;
     static const ImGuiTableSortSpecs* sortSpecs_;
 };
 

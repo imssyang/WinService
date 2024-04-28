@@ -1,12 +1,12 @@
 #pragma once
 
-#include "util/WsmUtil.h"
+#include "util/WSUtil.h"
 
-class WsmApp
+class WSApp
 {
 public:
-    WsmApp(const std::string& name, const std::string& alias = "");
-    virtual ~WsmApp();
+    WSApp(const std::string& name, const std::string& alias = "");
+    virtual ~WSApp();
 
     virtual bool Install(const std::string& path);
     bool Uninstall();
@@ -14,9 +14,9 @@ public:
     bool Stop();
     bool Enable();
     bool Disable();
-    std::optional<WsmSvcStatus> GetStatus();
-    std::optional<WsmSvcConfig> GetConfig(bool hasDesc = false);
-    std::vector<WsmSvcStatus> GetDependents();
+    std::optional<WSvcStatus> GetStatus();
+    std::optional<WSvcConfig> GetConfig(bool hasDesc = false);
+    std::vector<WSvcStatus> GetDependents();
     bool SetDescription(const std::string& desc);
     bool SetDacl(const std::string& trustee);
 
@@ -24,9 +24,8 @@ public:
     virtual std::string GetPath() const { return path_; }
 
 private:
-    bool Init(DWORD scDesiredAccess = SC_MANAGER_ALL_ACCESS, DWORD svDesiredAccess = SERVICE_ALL_ACCESS);
     bool SetStartup(DWORD type);
-    bool StopDependents();
+    bool StopDependents(SC_HANDLE manager);
 
 private:
     std::string name_;

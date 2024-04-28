@@ -22,13 +22,13 @@
 #define SERVICE_WIN32_APP_AS_SERVICE 0x55FFAAFF
 #define SPDLOG_COUT(...) SPDLOG_LOGGER_INFO(spdlog::get("cout").get(), __VA_ARGS__)
 
-struct WsmSvcBase
+struct WSvcBase
 {
     std::string serviceName;
     std::string displayName;
     unsigned long serviceType;
 
-    std::string getServiceType() const {
+    std::string GetServiceType() const {
         switch (serviceType) {
             case SERVICE_KERNEL_DRIVER:
                 return "Driver";
@@ -45,22 +45,22 @@ struct WsmSvcBase
         }
     }
 
-    void setServiceType(const std::string& st, bool isInteractive) {
+    void SetServiceType(const std::string& svcType, bool isInteractive) {
 	    DWORD dwInteractiveBit = isInteractive ? SERVICE_INTERACTIVE_PROCESS : 0;
-        if (st == "Driver")
+        if (svcType == "Driver")
             serviceType = SERVICE_KERNEL_DRIVER;
-        else if (st == "FSDriver")
+        else if (svcType == "FSDriver")
             serviceType = SERVICE_FILE_SYSTEM_DRIVER;
-        else if (st == "OwnProcess")
+        else if (svcType == "OwnProcess")
             serviceType = SERVICE_WIN32_OWN_PROCESS | dwInteractiveBit;
-        else if (st == "ShareProcess")
+        else if (svcType == "ShareProcess")
             serviceType = SERVICE_WIN32_SHARE_PROCESS | dwInteractiveBit;
-        else if (st == "Application")
+        else if (svcType == "Application")
             serviceType = SERVICE_WIN32_APP_AS_SERVICE;
     }
 };
 
-struct WsmSvcStatus : public WsmSvcBase
+struct WSvcStatus : public WSvcBase
 {
     unsigned long currentState;
     unsigned long controlsAccepted;
@@ -71,7 +71,7 @@ struct WsmSvcStatus : public WsmSvcBase
     unsigned long processId;
     unsigned long serviceFlags;
 
-    void init(const std::string& serviceName,
+    WSvcStatus(const std::string& serviceName,
         const std::string& displayName,
         const SERVICE_STATUS& ss) {
         this->serviceName = serviceName;
@@ -87,7 +87,7 @@ struct WsmSvcStatus : public WsmSvcBase
         serviceFlags = 0;
     }
 
-    void init(const std::string& serviceName,
+    WSvcStatus(const std::string& serviceName,
         const std::string& displayName,
         const SERVICE_STATUS_PROCESS& ssp) {
         this->serviceName = serviceName;
@@ -103,15 +103,15 @@ struct WsmSvcStatus : public WsmSvcBase
         serviceFlags = ssp.dwServiceFlags;
     }
 
-    std::string getCurrentState() const {
-        return getState(currentState);
+    std::string GetCurrentState() const {
+        return GetState(currentState);
     }
 
-    bool isRunInSystemProcess() {
+    bool IsRunInSystemProcess() {
         return bool(serviceFlags & SERVICE_RUNS_IN_SYSTEM_PROCESS);
     }
 
-    static std::string getState(unsigned long state) {
+    static std::string GetState(unsigned long state) {
         switch (state) {
             case SERVICE_CONTINUE_PENDING:
                 return "ContinuePending";
@@ -133,7 +133,7 @@ struct WsmSvcStatus : public WsmSvcBase
     }
 };
 
-struct WsmSvcConfig : public WsmSvcBase
+struct WSvcConfig : public WSvcBase
 {
     std::string serviceStartName;
     std::string description;
@@ -144,7 +144,7 @@ struct WsmSvcConfig : public WsmSvcBase
     unsigned long errorControl;
     unsigned long tagId;
 
-    void init(const std::string& serviceName,
+    WSvcConfig(const std::string& serviceName,
         const QUERY_SERVICE_CONFIG& qsc,
         const SERVICE_DESCRIPTION& sd) {
         this->serviceName = serviceName;
@@ -166,12 +166,12 @@ struct WsmSvcConfig : public WsmSvcBase
             loadOrderGroup = qsc.lpLoadOrderGroup;
     }
 
-    std::string getStartType() const {
-        return getStartType(startType);
+    std::string GetStartType() const {
+        return GetStartType(startType);
     }
 
-    static std::string getStartType(unsigned long st) {
-        switch (st) {
+    static std::string GetStartType(unsigned long startType) {
+        switch (startType) {
             case SERVICE_BOOT_START:
                 return "Boot";
             case SERVICE_SYSTEM_START:
@@ -188,9 +188,10 @@ struct WsmSvcConfig : public WsmSvcBase
     }
 };
 
-void InitSpdlog(bool isGui, bool enableFile);
 std::string UTF8toANSI(const std::string& utf8);
 std::string ANSItoUTF8(const std::string& gbk);
+
+void InitSpdlog(bool isGui, bool enableFile);
 void PrintStackContext(CONTEXT* ctx);
 struct RtlContextException
 {

@@ -1,30 +1,26 @@
-#include "core/WsmApp.h"
-#include "core/WsmSvc.h"
+#include "core/WSApp.h"
+#include "core/WSGeneral.h"
 
-WsmApp::WsmApp(const std::string& name, const std::string& alias):
-    name_(name), alias_(alias)
+WSApp::WSApp(const std::string& name, const std::string& alias)
+    : name_(name), alias_(alias)
 {
     if (alias_.empty())
         alias_ = name_;
 }
 
-WsmApp::~WsmApp()
+WSApp::~WSApp()
 {
 }
 
-bool WsmApp::Install(const std::string& path)
+bool WSApp::Install(const std::string& path)
 {
-    bool result = false;
-    SC_HANDLE manager = OpenSCManager(NULL, NULL, SC_MANAGER_CREATE_SERVICE);
-    if (!manager) {
-        SPDLOG_ERROR("OpenSCManager on install failed! WinApi@");
-        goto svc_cleanup;
-    }
+    WSHandle wsHandle(SC_MANAGER_CREATE_SERVICE);
+    if (!wsHandle.Check())
+        return false;
 
     TCHAR executedPath[MAX_PATH];
     StringCbPrintf(executedPath, MAX_PATH, TEXT("%s"), path.data());
-
-    SC_HANDLE service = CreateService(manager,
+    SC_HANDLE service = CreateService(wsHandle.Manager,
         name_.data(),
         alias_.data(),
         SERVICE_ALL_ACCESS,
@@ -35,134 +31,89 @@ bool WsmApp::Install(const std::string& path)
         NULL, NULL, NULL, NULL, NULL);
     if (!service) {
         SPDLOG_ERROR("CreateService failed! WinApi@");
-        goto svc_cleanup;
+        return false;
     }
 
     path_ = path;
-    result = true;
+    CloseServiceHandle(service);
     SPDLOG_INFO("Service installed successfully");
-
-svc_cleanup:
-    if (service)
-        CloseServiceHandle(service);
-    if (manager)
-        CloseServiceHandle(manager);
-    return result;
+    return true;
 }
 
-bool WsmApp::Uninstall()
+bool WSApp::Uninstall()
 {
-    bool result = false;
-    SC_HANDLE manager = OpenSCManager(NULL, NULL, SC_MANAGER_CREATE_SERVICE);
-    if (!manager) {
-        SPDLOG_ERROR("OpenSCManager on Uninstall failed! WinApi@");
-        goto svc_cleanup;
-    }
+    WSHandle wsHandle(SC_MANAGER_CREATE_SERVICE, DELETE, name_);
+    if (!wsHandle.Check())
+        return false;
 
-    SC_HANDLE service = OpenService(manager, name_.data(), DELETE);
-    if (!service) {
-        SPDLOG_ERROR("OpenService failed! WinApi@");
-        goto svc_cleanup;
-    }
-
-    if (!DeleteService(service)) {
+    if (!DeleteService(wsHandle.Service)) {
         SPDLOG_ERROR("DeleteService failed! WinApi@");
-        goto svc_cleanup;
+        return false;
     }
 
-    result = true;
     SPDLOG_INFO("Service deleted successfully");
-
-svc_cleanup:
-    if (service)
-        CloseServiceHandle(service);
-    if (manager)
-        CloseServiceHandle(manager);
-    return result;
+    return true;
 }
 
-bool WsmApp::SetDescription(const std::string& desc)
+bool WSApp::SetDescription(const std::string& desc)
 {
-    bool result = false;
     if (desc.empty())
-        goto svc_cleanup;
+        return false;
 
-    SC_HANDLE manager = OpenSCManager(NULL, NULL, SC_MANAGER_CREATE_SERVICE);
-    if (!manager) {
-        SPDLOG_ERROR("OpenSCManager on Uninstall failed! WinApi@");
-        goto svc_cleanup;
-    }
-
-    SC_HANDLE service = OpenService(manager, name_.data(), SERVICE_CHANGE_CONFIG);
-    if (!service) {
-        SPDLOG_ERROR("OpenService failed! WinApi@");
-        goto svc_cleanup;
-    }
+    WSHandle wsHandle(SC_MANAGER_CREATE_SERVICE, SERVICE_CHANGE_CONFIG, name_);
+    if (!wsHandle.Check())
+        return false;
 
     SERVICE_DESCRIPTION sd;
     sd.lpDescription = (LPTSTR)desc.data();
-    if (!ChangeServiceConfig2(service,
+    if (!ChangeServiceConfig2(
+            wsHandle.Service,
             SERVICE_CONFIG_DESCRIPTION,
             &sd)) {
         SPDLOG_ERROR("ChangeServiceConfig2 failed! WinApi@");
-        goto svc_cleanup;
+        return false;
     }
 
     desc_ = desc;
-    result = true;
     SPDLOG_INFO("Service description updated successfully.");
-
-svc_cleanup:
-    if (service)
-        CloseServiceHandle(service);
-    if (manager)
-        CloseServiceHandle(manager);
-    return result;
+    return true;
 }
 
-std::optional<WsmSvcConfig> WsmApp::GetConfig(bool hasDesc)
+std::optional<WSvcConfig> WSApp::GetConfig(bool hasDesc)
 {
-    std::optional<WsmSvcConfig> result = std::nullopt;
-
-    SC_HANDLE manager = OpenSCManager(NULL, NULL, SC_MANAGER_ENUMERATE_SERVICE);
-    if (!manager) {
-        SPDLOG_ERROR("OpenSCManager on Uninstall failed! WinApi@");
-        goto svcconfig_cleanup;
-    }
-
-    SC_HANDLE service = OpenService(manager, name_.data(), SERVICE_QUERY_CONFIG);
-    if (!service) {
-        SPDLOG_ERROR("OpenService failed! WinApi@");
-        goto svcconfig_cleanup;
-    }
-
+    std::optional<WSvcConfig> result = std::nullopt;
     LPQUERY_SERVICE_CONFIG lpsc = NULL;
+    LPSERVICE_DESCRIPTION lpsd = NULL;
+
+    WSHandle wsHandle(SC_MANAGER_ENUMERATE_SERVICE, SERVICE_QUERY_CONFIG, name_);
+    if (!wsHandle.Check())
+        goto svc_cleanup;
+
     DWORD bytesNeeded, bufSize, lastError;
-    if (!QueryServiceConfig(service, NULL, 0, &bytesNeeded)) {
+    if (!QueryServiceConfig(wsHandle.Service, NULL, 0, &bytesNeeded)) {
         lastError = GetLastError();
         if (ERROR_INSUFFICIENT_BUFFER != lastError) {
             SPDLOG_ERROR("QueryServiceConfig failed ({})", lastError);
-            goto svcconfig_cleanup;
+            goto svc_cleanup;
         }
 
         bufSize = bytesNeeded;
         lpsc = (LPQUERY_SERVICE_CONFIG) LocalAlloc(LMEM_FIXED, bufSize);
     }
 
-    if (!QueryServiceConfig(service, lpsc, bufSize, &bytesNeeded)) {
+    if (!QueryServiceConfig(wsHandle.Service, lpsc, bufSize, &bytesNeeded)) {
         SPDLOG_ERROR("QueryServiceConfig failed.");
-        goto svcconfig_cleanup;
+        goto svc_cleanup;
     }
 
-    LPSERVICE_DESCRIPTION lpsd = NULL;
     if (hasDesc) {
-        if (!QueryServiceConfig2(service, SERVICE_CONFIG_DESCRIPTION, NULL, 0, &bytesNeeded)) {
+        if (!QueryServiceConfig2(wsHandle.Service, SERVICE_CONFIG_DESCRIPTION, NULL, 0, &bytesNeeded)) {
             if (ERROR_INSUFFICIENT_BUFFER == GetLastError()) {
                 bufSize = bytesNeeded;
                 lpsd = (LPSERVICE_DESCRIPTION) LocalAlloc(LMEM_FIXED, bufSize);
-                if (!QueryServiceConfig2(service, SERVICE_CONFIG_DESCRIPTION, (LPBYTE) lpsd, bufSize, &bytesNeeded)) {
+                if (!QueryServiceConfig2(wsHandle.Service, SERVICE_CONFIG_DESCRIPTION, (LPBYTE) lpsd, bufSize, &bytesNeeded)) {
                     SPDLOG_ERROR("QueryServiceConfig2 failed.");
-                    goto svcconfig_cleanup;
+                    goto svc_cleanup;
                 }
             }
         }
@@ -171,55 +122,41 @@ std::optional<WsmSvcConfig> WsmApp::GetConfig(bool hasDesc)
     if (!lpsd)
         lpsd = (LPSERVICE_DESCRIPTION) LocalAlloc(LMEM_ZEROINIT, 0);
 
-    result = std::make_optional<WsmSvcConfig>();
-    result.value().init(name_, *lpsc, *lpsd);
+    result = std::make_optional<WSvcConfig>(name_, *lpsc, *lpsd);
 
-svcconfig_cleanup:
+svc_cleanup:
     if (lpsc)
         LocalFree(lpsc);
     if (lpsd)
         LocalFree(lpsd);
-    if (service)
-        CloseServiceHandle(service);
-    if (manager)
-        CloseServiceHandle(manager);
     return std::move(result);
 }
 
-bool WsmApp::Enable()
+bool WSApp::Enable()
 {
     return SetStartup(SERVICE_AUTO_START);
 }
 
-bool WsmApp::Disable()
+bool WSApp::Disable()
 {
     return SetStartup(SERVICE_DISABLED);
 }
 
-bool WsmApp::Start()
+bool WSApp::Start()
 {
-    bool result = false;
-    SC_HANDLE manager = OpenSCManager(NULL, NULL, SC_MANAGER_ENUMERATE_SERVICE);
-    if (!manager) {
-        SPDLOG_ERROR("OpenSCManager on start failed! WinApi@");
-        goto svc_cleanup;
-    }
+    WSHandle wsHandle(SC_MANAGER_ENUMERATE_SERVICE, SERVICE_ALL_ACCESS, name_);
+    if (!wsHandle.Check())
+        return false;
 
-    SC_HANDLE service = OpenService(manager, name_.data(), SERVICE_ALL_ACCESS);
-    if (!service) {
-        SPDLOG_ERROR("OpenService failed! WinApi@");
-        goto svc_cleanup;
-    }
-
-    auto wssopt = GetStatus();
+    std::optional<WSvcStatus> wssopt = GetStatus();
     if (!wssopt)
-        goto svc_cleanup;
+        return false;
 
     auto& wss = wssopt.value();
     if (wss.currentState != SERVICE_STOPPED
         && wss.currentState != SERVICE_STOP_PENDING) {
         SPDLOG_ERROR("Cannot start the service because it is already running");
-        goto svc_cleanup;
+        return false;
     }
 
     DWORD waitTime;
@@ -235,7 +172,7 @@ bool WsmApp::Start()
 
         wssopt = GetStatus();
         if (!wssopt)
-            goto svc_cleanup;
+            return false;
 
         wss = wssopt.value();
         if (wss.checkPoint > oldCheckPoint) {
@@ -244,20 +181,20 @@ bool WsmApp::Start()
         } else {
             if (GetTickCount() - startTickCount > wss.waitHint) {
                 SPDLOG_ERROR("Timeout waiting for service to stop");
-                goto svc_cleanup;
+                return false;
             }
         }
     }
 
-    if (!::StartService(service, 0, NULL)) {
+    if (!::StartService(wsHandle.Service, 0, NULL)) {
         SPDLOG_ERROR("StartService failed.");
-        goto svc_cleanup;
+        return false;
     }
 
     SPDLOG_INFO("Service start pending...");
     wssopt = GetStatus();
     if (!wssopt)
-        goto svc_cleanup;
+        return false;
 
     wss = wssopt.value();
     startTickCount = GetTickCount();
@@ -272,7 +209,7 @@ bool WsmApp::Start()
 
         wssopt = GetStatus();
         if (!wssopt)
-            goto svc_cleanup;
+            return false;
 
         wss = wssopt.value();
         if (wss.checkPoint > oldCheckPoint) {
@@ -288,49 +225,33 @@ bool WsmApp::Start()
 
     if (wss.currentState != SERVICE_RUNNING) {
         SPDLOG_INFO("Service not started.");
-        SPDLOG_INFO("  Current State: {}", wss.getCurrentState());
+        SPDLOG_INFO("  Current State: {}", wss.GetCurrentState());
         SPDLOG_INFO("  Exit Code: {}", wss.win32ExitCode);
         SPDLOG_INFO("  Check Point: {}", wss.checkPoint);
         SPDLOG_INFO("  Wait Hint: {}", wss.waitHint);
-        goto svc_cleanup;
+        return false;
     }
 
-    result = true;
     SPDLOG_INFO("Service started successfully.");
-
-svc_cleanup:
-    if (service)
-        CloseServiceHandle(service);
-    if (manager)
-        CloseServiceHandle(manager);
-    return result;
+    return true;
 }
 
-bool WsmApp::Stop()
+bool WSApp::Stop()
 {
-    bool result = false;
-    SC_HANDLE manager = OpenSCManager(NULL, NULL, SC_MANAGER_ENUMERATE_SERVICE);
-    if (!manager) {
-        SPDLOG_ERROR("OpenSCManager on start failed! WinApi@");
-        goto svc_cleanup;
-    }
-
-    SC_HANDLE service = OpenService(manager, name_.data(), SERVICE_STOP |
+    WSHandle wsHandle(SC_MANAGER_ENUMERATE_SERVICE, SERVICE_STOP |
         SERVICE_QUERY_STATUS |
-        SERVICE_ENUMERATE_DEPENDENTS);
-    if (!service) {
-        SPDLOG_ERROR("OpenService failed! WinApi@");
-        goto svc_cleanup;
-    }
+        SERVICE_ENUMERATE_DEPENDENTS, name_);
+    if (!wsHandle.Check())
+        return false;
 
-    auto wssopt = GetStatus();
+    std::optional<WSvcStatus> wssopt = GetStatus();
     if (!wssopt)
-        goto svc_cleanup;
+        return false;
 
     auto& wss = wssopt.value();
     if (wss.currentState == SERVICE_STOPPED) {
         SPDLOG_INFO("Service is already stopped.");
-        goto svc_cleanup;
+        return false;
     }
 
     DWORD waitTime;
@@ -345,32 +266,31 @@ bool WsmApp::Stop()
             waitTime = 10000;
         Sleep(waitTime);
 
-
         wssopt = GetStatus();
         if (!wssopt)
-            goto svc_cleanup;
+            return false;
 
         wss = wssopt.value();
         if (wss.currentState == SERVICE_STOPPED) {
             SPDLOG_INFO("Service stopped successfully.");
-            goto svc_cleanup;
+            return false;
         }
 
         if (GetTickCount() - startTime > timeoutMS) {
             SPDLOG_INFO("Service stop timed out.");
-            goto svc_cleanup;
+            return false;
         }
     }
 
     // dependencies must be stopped first!
-    StopDependents();
+    StopDependents(wsHandle.Manager);
 
     SERVICE_STATUS_PROCESS ssp;
-    if (!ControlService(service, SERVICE_CONTROL_STOP, (LPSERVICE_STATUS) &ssp)) {
+    if (!ControlService(wsHandle.Service, SERVICE_CONTROL_STOP, (LPSERVICE_STATUS) &ssp)) {
         DWORD lastError = GetLastError();
         if (ERROR_BROKEN_PIPE != lastError) {
             SPDLOG_ERROR("ControlService failed.");
-            goto svc_cleanup;
+            return false;
         }
     }
 
@@ -381,7 +301,7 @@ bool WsmApp::Stop()
 
         wssopt = GetStatus();
         if (!wssopt)
-            goto svc_cleanup;
+            return false;
 
         wss = wssopt.value();
         if (wss.currentState == SERVICE_STOPPED)
@@ -389,40 +309,27 @@ bool WsmApp::Stop()
 
         if (GetTickCount() - startTime > timeoutMS) {
             SPDLOG_INFO("Wait timed out");
-            goto svc_cleanup;
+            return false;
         }
     }
 
-    result = true;
     SPDLOG_INFO("Service stopped successfully");
-
-svc_cleanup:
-    if (service)
-        CloseServiceHandle(service);
-    if (manager)
-        CloseServiceHandle(manager);
-    return result;
+    return true;
 }
 
-bool WsmApp::SetDacl(const std::string& trustee)
+bool WSApp::SetDacl(const std::string& trustee)
 {
     bool result = false;
-    SC_HANDLE manager = OpenSCManager(NULL, NULL, SC_MANAGER_CREATE_SERVICE);
-    if (!manager) {
-        SPDLOG_ERROR("OpenSCManager on start failed! WinApi@");
-        goto dacl_cleanup;
-    }
+    PACL newAcl = NULL;
+    PSECURITY_DESCRIPTOR psd = NULL;
 
-    SC_HANDLE service = OpenService(manager, name_.data(), READ_CONTROL | WRITE_DAC);
-    if (!service) {
-        SPDLOG_ERROR("OpenService failed! WinApi@");
+    WSHandle wsHandle(SC_MANAGER_CREATE_SERVICE, READ_CONTROL | WRITE_DAC, name_);
+    if (!wsHandle.Check())
         goto dacl_cleanup;
-    }
 
     DWORD descSize = 0;
     DWORD bytesNeeded = 0;
-    PSECURITY_DESCRIPTOR psd = NULL;
-    if (!QueryServiceObjectSecurity(service,
+    if (!QueryServiceObjectSecurity(wsHandle.Service,
             DACL_SECURITY_INFORMATION,
             &psd,
             0,
@@ -440,7 +347,7 @@ bool WsmApp::SetDacl(const std::string& trustee)
             goto dacl_cleanup;
         }
 
-        if (!QueryServiceObjectSecurity(service,
+        if (!QueryServiceObjectSecurity(wsHandle.Service,
                 DACL_SECURITY_INFORMATION,
                 psd,
                 descSize,
@@ -468,7 +375,6 @@ bool WsmApp::SetDacl(const std::string& trustee)
         SET_ACCESS,
         NO_INHERITANCE);
 
-    PACL newAcl = NULL;
     DWORD lastError = SetEntriesInAcl(1, &ea, pacl, &newAcl);
     if (lastError != ERROR_SUCCESS) {
         SPDLOG_ERROR("SetEntriesInAcl failed({})", lastError);
@@ -486,7 +392,7 @@ bool WsmApp::SetDacl(const std::string& trustee)
         goto dacl_cleanup;
     }
 
-    if (!SetServiceObjectSecurity(service, DACL_SECURITY_INFORMATION, &sd)) {
+    if (!SetServiceObjectSecurity(wsHandle.Service, DACL_SECURITY_INFORMATION, &sd)) {
         SPDLOG_ERROR("SetServiceObjectSecurity failed");
         goto dacl_cleanup;
     }
@@ -499,97 +405,54 @@ dacl_cleanup:
         LocalFree((HLOCAL)newAcl);
     if(NULL != psd)
         HeapFree(GetProcessHeap(), 0, (LPVOID)psd);
-    if (service)
-        CloseServiceHandle(service);
-    if (manager)
-        CloseServiceHandle(manager);
     return result;
 }
 
-bool WsmApp::SetStartup(DWORD type)
+bool WSApp::SetStartup(DWORD type)
 {
-    bool result = false;
-    SC_HANDLE manager = OpenSCManager(NULL, NULL, SC_MANAGER_CREATE_SERVICE);
-    if (!manager) {
-        SPDLOG_ERROR("OpenSCManager on start failed! WinApi@");
-        goto svc_cleanup;
-    }
-
-    SC_HANDLE service = OpenService(manager, name_.data(), SERVICE_CHANGE_CONFIG);
-    if (!service) {
-        SPDLOG_ERROR("OpenService failed! WinApi@");
-        goto svc_cleanup;
-    }
+    WSHandle wsHandle(SC_MANAGER_CREATE_SERVICE, SERVICE_CHANGE_CONFIG, name_);
+    if (!wsHandle.Check())
+        return false;
 
     if (!ChangeServiceConfig(
-            service,
+            wsHandle.Service,
             SERVICE_NO_CHANGE,
             type,
             SERVICE_NO_CHANGE,
             NULL, NULL, NULL, NULL, NULL, NULL, NULL)) {
-        SPDLOG_ERROR("ChangeServiceConfig failed");
-        goto svc_cleanup;
+        SPDLOG_ERROR("ChangeServiceConfig failed! WinApi@");
+        return false;
     }
 
-    result = true;
     SPDLOG_INFO("Service enabled successfully.");
-
-svc_cleanup:
-    if (service)
-        CloseServiceHandle(service);
-    if (manager)
-        CloseServiceHandle(manager);
-    return result;
+    return true;
 }
 
-std::optional<WsmSvcStatus> WsmApp::GetStatus()
+std::optional<WSvcStatus> WSApp::GetStatus()
 {
-    std::optional<WsmSvcStatus> result = std::nullopt;
-
-    SC_HANDLE manager = OpenSCManager(NULL, NULL, SC_MANAGER_CREATE_SERVICE);
-    if (!manager) {
-        SPDLOG_ERROR("OpenSCManager on start failed! WinApi@");
-        goto svc_cleanup;
-    }
-
-    SC_HANDLE service = OpenService(manager, name_.data(), SERVICE_CHANGE_CONFIG);
-    if (!service) {
-        SPDLOG_ERROR("OpenService failed! WinApi@");
-        goto svc_cleanup;
-    }
+    WSHandle wsHandle(SC_MANAGER_CREATE_SERVICE, SERVICE_CHANGE_CONFIG, name_);
+    if (!wsHandle.Check())
+        return std::nullopt;
 
     DWORD bytesNeeded;
     SERVICE_STATUS_PROCESS statusProcess;
     if (!QueryServiceStatusEx(
-            service,
+            wsHandle.Service,
             SC_STATUS_PROCESS_INFO,
             (LPBYTE) &statusProcess,
             sizeof(SERVICE_STATUS_PROCESS),
             &bytesNeeded)) {
         SPDLOG_ERROR("QueryServiceStatusEx failed! WinApi@");
-        goto svc_cleanup;
+        return std::nullopt;
     }
 
-    result = std::make_optional<WsmSvcStatus>();
-    result.value().init(name_, alias_, statusProcess);
-
-svc_cleanup:
-    if (service)
-        CloseServiceHandle(service);
-    if (manager)
-        CloseServiceHandle(manager);
+    auto result = std::make_optional<WSvcStatus>(name_, alias_, statusProcess);
     return std::move(result);
 }
 
-bool WsmApp::StopDependents()
+bool WSApp::StopDependents(SC_HANDLE manager)
 {
     bool result = false;
-    SC_HANDLE manager = OpenSCManager(NULL, NULL, SC_MANAGER_CREATE_SERVICE);
-    if (!manager) {
-        SPDLOG_ERROR("OpenSCManager on start failed! WinApi@");
-        goto svc_cleanup;
-    }
-
     DWORD startTime = GetTickCount();
     DWORD timeoutMS = 30000;
     auto deps = GetDependents();
@@ -634,32 +497,21 @@ bool WsmApp::StopDependents()
         CloseServiceHandle(depService);
     }
 
-svc_cleanup:
-    if (manager)
-        CloseServiceHandle(manager);
     return result;
 }
 
-std::vector<WsmSvcStatus> WsmApp::GetDependents()
+std::vector<WSvcStatus> WSApp::GetDependents()
 {
-    std::vector<WsmSvcStatus> result;
+    std::vector<WSvcStatus> result;
+    LPENUM_SERVICE_STATUS lpDeps = NULL;
 
-    SC_HANDLE manager = OpenSCManager(NULL, NULL, SC_MANAGER_ENUMERATE_SERVICE);
-    if (!manager) {
-        SPDLOG_ERROR("OpenSCManager on start failed! WinApi@");
+    WSHandle wsHandle(SC_MANAGER_ENUMERATE_SERVICE, SERVICE_ALL_ACCESS, name_);
+    if (!wsHandle.Check())
         goto svcdepend_cleanup;
-    }
-
-    SC_HANDLE service = OpenService(manager, name_.data(), SERVICE_ALL_ACCESS);
-    if (!service) {
-        SPDLOG_ERROR("OpenService failed! WinApi@");
-        goto svcdepend_cleanup;
-    }
 
     DWORD bytesNeeded;
     DWORD returnedCount;
-    LPENUM_SERVICE_STATUS lpDeps = NULL;
-    if (EnumDependentServices(service, SERVICE_STATE_ALL, lpDeps, 0, &bytesNeeded, &returnedCount)) {
+    if (EnumDependentServices(wsHandle.Service, SERVICE_STATE_ALL, lpDeps, 0, &bytesNeeded, &returnedCount)) {
         // no dependent services!
         goto svcdepend_cleanup;
     }
@@ -675,7 +527,7 @@ std::vector<WsmSvcStatus> WsmApp::GetDependents()
         goto svcdepend_cleanup;
     }
 
-    if (!EnumDependentServices(service, SERVICE_STATE_ALL, lpDeps, bytesNeeded, &bytesNeeded, &returnedCount)) {
+    if (!EnumDependentServices(wsHandle.Service, SERVICE_STATE_ALL, lpDeps, bytesNeeded, &bytesNeeded, &returnedCount)) {
         SPDLOG_ERROR("EnumDependentServices {} byte failed", bytesNeeded);
         goto svcdepend_cleanup;
     }
@@ -683,17 +535,12 @@ std::vector<WsmSvcStatus> WsmApp::GetDependents()
     for (DWORD i = 0; i < returnedCount; i++) {
         ENUM_SERVICE_STATUS ess = *(lpDeps + i);
         SERVICE_STATUS ss = ess.ServiceStatus;
-        WsmSvcStatus svcStatus;
-        svcStatus.init(ess.lpServiceName, ess.lpDisplayName, ss);
-        result.push_back(svcStatus);
+        WSvcStatus svcStatus(ess.lpServiceName, ess.lpDisplayName, ss);
+        result.push_back(std::move(svcStatus));
     }
 
 svcdepend_cleanup:
     if (lpDeps)
         HeapFree(GetProcessHeap(), 0, lpDeps);
-    if (service)
-        CloseServiceHandle(service);
-    if (manager)
-        CloseServiceHandle(manager);
     return std::move(result);
 }
