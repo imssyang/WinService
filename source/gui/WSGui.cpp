@@ -184,7 +184,7 @@ void ImGuiBaseWnd::HelpTip(Args... args)
 ImGuiPropertyWnd::ImGuiPropertyWnd(ImGuiEngine* engine)
     : ImGuiBaseWnd(engine)
     , typeID_(TypeIDs.size()-1), startupID_(StartupIDs.size()-2)
-    , svcName(""), svcAlias(""), svcPath(""), svcDesc("")
+    , svcName(""), svcAlias(""), svcPath(""), svcDesc("abc\n123\nefg")
 {
 }
 
@@ -240,7 +240,9 @@ void ImGuiPropertyWnd::Show()
         }
         if (ImGui::InputTextMultiline("Description", svcDesc, IM_ARRAYSIZE(svcDesc),
             ImVec2(0, ImGui::GetTextLineHeight() * 5), ImGuiInputTextFlags_AllowTabInput)) {
-            SPDLOG_INFO("Service desc: {}", svcDesc);
+            std::string multiDesc = ToMultiLine(svcDesc, 10);
+            strcpy(svcDesc, multiDesc.data());
+            SPDLOG_INFO("Service desc: {} -> {}", svcDesc, multiDesc);
         }
         ImGui::PopItemWidth();
         ImGui::PopStyleVar();

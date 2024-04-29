@@ -246,3 +246,5 @@ struct RtlContextException
 
     CONTEXT Context;
 };
+
+std::string ToMultiLine(const std::string& line, int charNum);
