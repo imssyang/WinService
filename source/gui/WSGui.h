@@ -25,6 +25,8 @@ public:
     IDXGISwapChain* swapChain;
 };
 
+class ImGuiEngine;
+
 class ImGuiServiceItem
 {
 public:
@@ -37,7 +39,7 @@ public:
     const WSvcConfig& GetSvcConfig() const { return config_; }
     std::string GetName() const { return status_.serviceName; }
     std::string GetAlias() const { return status_.displayName; }
-    std::string GetType() const { return status_.GetServiceType(); }
+    std::string GetType() const { return status_.GetType(); }
     std::string GetStartup() const { return config_.GetStartType(); }
     std::string GetState() const { return status_.GetCurrentState(); }
     uint32_t GetPID() const { return (uint32_t) status_.processId; }
@@ -51,8 +53,6 @@ private:
     static const ImGuiTableSortSpecs* sortSpecs_;
 };
 
-class ImGuiEngine;
-
 class ImGuiBaseWnd
 {
 public:
@@ -64,11 +64,33 @@ public:
     const ImVec2& GetSize() const { return wndSize_; }
     template<typename... Args> void HelpTip(Args... args);
 
+public:
+    static float CharWidth;
+    static std::vector<std::string> TypeIDs;
+    static std::vector<std::string> StartupIDs;
+    static std::vector<std::string> StateIDs;
+
 protected:
     ImGuiEngine *engine_;
     ImVec2 wndPos_;
     ImVec2 wndSize_;
     ImGuiWindowFlags wndFlags_;
+};
+
+class ImGuiPropertyWnd : public ImGuiBaseWnd
+{
+public:
+    ImGuiPropertyWnd(ImGuiEngine* engine);
+
+    void Show();
+
+private:
+    int typeID_;
+    int startupID_;
+    char svcName[256];
+    char svcAlias[256];
+    char svcPath[1024];
+    char svcDesc[2048];
 };
 
 class ImGuiServiceWnd : public ImGuiBaseWnd
@@ -97,8 +119,6 @@ private:
     int startupID_;
     int stateID_;
     std::vector<std::string> columnIDs_;
-    std::vector<std::string> startupIDs_;
-    std::vector<std::string> stateIDs_;
     std::vector<ImGuiServiceItem> items_;
     ImVector<int> selection_;
     ImGuiTableFlags servTableFlags_;
@@ -131,6 +151,7 @@ private:
     ImGuiTextFilter filter_;
     ImGuiTableFlags mainTableFlags_;
     ImGuiComboFlags filterComboFlags_;
+    ImGuiPropertyWnd propertyWnd_;
 };
 
 class ImGuiEngine

@@ -70,7 +70,7 @@ int ConsoleMain(int argc, char *argv[], bool hasConsole)
             }
 
             services_table.add_row({s.serviceName, s.displayName,
-                s.GetServiceType(), s.GetCurrentState(), std::to_string(s.processId),
+                s.GetType(), s.GetCurrentState(), std::to_string(s.processId),
                 config.binaryPathName, config.GetStartType()});
         }
 

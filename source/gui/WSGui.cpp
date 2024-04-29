@@ -138,6 +138,33 @@ ImGuiServiceItem::ImGuiServiceItem(int id, WSvcStatus status, WSvcConfig config)
 {
 }
 
+float ImGuiBaseWnd::CharWidth = 0;
+
+std::vector<std::string> ImGuiBaseWnd::TypeIDs({
+    WSvcBase::GetType(SERVICE_KERNEL_DRIVER),
+    WSvcBase::GetType(SERVICE_FILE_SYSTEM_DRIVER),
+    WSvcBase::GetType(SERVICE_WIN32),
+    WSvcBase::GetType(SERVICE_WIN32_AS_SERVICE)
+});
+
+std::vector<std::string> ImGuiBaseWnd::StartupIDs({
+    WSvcConfig::GetStartType(SERVICE_BOOT_START),
+    WSvcConfig::GetStartType(SERVICE_SYSTEM_START),
+    WSvcConfig::GetStartType(SERVICE_AUTO_START),
+    WSvcConfig::GetStartType(SERVICE_DEMAND_START),
+    WSvcConfig::GetStartType(SERVICE_DISABLED)
+});
+
+std::vector<std::string> ImGuiBaseWnd::StateIDs({
+    WSvcStatus::GetState(SERVICE_CONTINUE_PENDING),
+    WSvcStatus::GetState(SERVICE_PAUSE_PENDING),
+    WSvcStatus::GetState(SERVICE_PAUSED),
+    WSvcStatus::GetState(SERVICE_RUNNING),
+    WSvcStatus::GetState(SERVICE_START_PENDING),
+    WSvcStatus::GetState(SERVICE_STOP_PENDING),
+    WSvcStatus::GetState(SERVICE_STOPPED)
+});
+
 template<typename... Args>
 void ImGuiBaseWnd::HelpTip(Args... args)
 {
@@ -151,6 +178,82 @@ void ImGuiBaseWnd::HelpTip(Args... args)
         ImGui::TextUnformatted(ss.str().data());
         ImGui::PopTextWrapPos();
         ImGui::EndTooltip();
+    }
+}
+
+ImGuiPropertyWnd::ImGuiPropertyWnd(ImGuiEngine* engine)
+    : ImGuiBaseWnd(engine)
+    , typeID_(TypeIDs.size()-1), startupID_(StartupIDs.size()-2)
+    , svcName(""), svcAlias(""), svcPath(""), svcDesc("")
+{
+}
+
+void ImGuiPropertyWnd::Show()
+{
+    if (ImGui::BeginPopupModal("New Service Properties", NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.6f);
+        ImGui::PushItemWidth(CharWidth * 50);
+        if (ImGui::InputTextWithHint("Name", "service's name", svcName, IM_ARRAYSIZE(svcName))) {
+            SPDLOG_INFO("Service name: {}", svcName);
+        }
+        if (ImGui::InputTextWithHint("Alias", "service's alias", svcAlias, IM_ARRAYSIZE(svcAlias))) {
+            SPDLOG_INFO("Service alias: {}", svcAlias);
+        }
+        if (ImGui::BeginCombo("Type", TypeIDs[typeID_].data(), ImGuiComboFlags_None)) {
+            for (int i = 0; i < TypeIDs.size(); i++) {
+                if (TypeIDs[i] == WSvcBase::GetType(SERVICE_KERNEL_DRIVER)
+                    || TypeIDs[i] == WSvcBase::GetType(SERVICE_FILE_SYSTEM_DRIVER)) {
+                    continue;
+                }
+                bool isSelected = (typeID_ == i);
+                if (ImGui::Selectable(TypeIDs[i].data(), isSelected)) {
+                    if (typeID_ != i) {
+                        SPDLOG_INFO("Service type: {} -> {}", TypeIDs[typeID_], TypeIDs[i]);
+                        typeID_ = i;
+                    }
+                }
+                if (isSelected)
+                    ImGui::SetItemDefaultFocus();
+            }
+            ImGui::EndCombo();
+        }
+        if (ImGui::BeginCombo("Startup", StartupIDs[startupID_].data(), ImGuiComboFlags_None)) {
+            for (int i = 0; i < StartupIDs.size(); i++) {
+                if (StartupIDs[i] == WSvcConfig::GetStartType(SERVICE_BOOT_START)
+                    || StartupIDs[i] == WSvcConfig::GetStartType(SERVICE_SYSTEM_START)) {
+                    continue;
+                }
+                bool isSelected = (startupID_ == i);
+                if (ImGui::Selectable(StartupIDs[i].data(), isSelected)) {
+                    if (startupID_ != i) {
+                        SPDLOG_INFO("Service startup: {} -> {}", StartupIDs[startupID_], StartupIDs[i]);
+                        startupID_ = i;
+                    }
+                }
+                if (isSelected)
+                    ImGui::SetItemDefaultFocus();
+            }
+            ImGui::EndCombo();
+        }
+        if (ImGui::InputTextWithHint("Execute", "service's path", svcPath, IM_ARRAYSIZE(svcPath))) {
+            SPDLOG_INFO("Service path: {}", svcPath);
+        }
+        if (ImGui::InputTextMultiline("Description", svcDesc, IM_ARRAYSIZE(svcDesc),
+            ImVec2(0, ImGui::GetTextLineHeight() * 5), ImGuiInputTextFlags_AllowTabInput)) {
+            SPDLOG_INFO("Service desc: {}", svcDesc);
+        }
+        ImGui::PopItemWidth();
+        ImGui::PopStyleVar();
+        ImGui::Separator();
+
+        if (ImGui::Button("OK", ImVec2(120, 0))) {
+            // TODO
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel", ImVec2(120, 0)))
+            ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
     }
 }
 
@@ -169,26 +272,6 @@ ImGuiServiceWnd::ImGuiServiceWnd(ImGuiEngine* engine)
     columnIDs_.swap(std::vector<std::string>(
         {"ID", "Name", "Alias", "Type", "Startup", "State", "PID", "Path", "Desc"}
     ));
-
-    startupIDs_.swap(std::vector<std::string>({
-        WSvcConfig::GetStartType(SERVICE_BOOT_START),
-        WSvcConfig::GetStartType(SERVICE_SYSTEM_START),
-        WSvcConfig::GetStartType(SERVICE_AUTO_START),
-        WSvcConfig::GetStartType(SERVICE_DEMAND_START),
-        WSvcConfig::GetStartType(SERVICE_DISABLED),
-        WSvcConfig::GetStartType(-1),
-    }));
-
-    stateIDs_.swap(std::vector<std::string>({
-        WSvcStatus::GetState(SERVICE_CONTINUE_PENDING),
-        WSvcStatus::GetState(SERVICE_PAUSE_PENDING),
-        WSvcStatus::GetState(SERVICE_PAUSED),
-        WSvcStatus::GetState(SERVICE_RUNNING),
-        WSvcStatus::GetState(SERVICE_START_PENDING),
-        WSvcStatus::GetState(SERVICE_STOP_PENDING),
-        WSvcStatus::GetState(SERVICE_STOPPED),
-        WSvcStatus::GetState(-1),
-    }));
 
     SyncItems();
 }
@@ -276,7 +359,6 @@ void ImGuiServiceWnd::Show()
     ImGui::SetNextWindowSize(wndSize_, ImGuiCond_Always);
     ImGui::Begin("TableWindow", nullptr, wndFlags_);
 
-    const float charWidth = ImGui::CalcTextSize("A").x;
     if (ImGui::BeginTable("table_services", 9, servTableFlags_)) {
         ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoHide, 0.0f, ImGuiServiceWnd::ColumnID_ID);
         ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_DefaultHide, 0.0f, ImGuiServiceWnd::ColumnID_Name);
@@ -344,22 +426,21 @@ void ImGuiServiceWnd::Show()
                 }
 
                 if (ImGui::TableSetColumnIndex(ImGuiServiceWnd::ColumnID_Startup)) {
-                    auto it = std::find(startupIDs_.begin(), startupIDs_.end(), item.GetStartup());
-                    startupID_ = std::distance(startupIDs_.begin(), it);
-                    ImGui::SetNextItemWidth(charWidth * 15);
-                    if (ImGui::BeginCombo("##Startup", startupIDs_[startupID_].data(), ImGuiComboFlags_None)) {
-                        for (int i = 0; i < startupIDs_.size(); i++) {
-                            if (startupIDs_[i] == WSvcConfig::GetStartType(-1)
-                                || startupIDs_[i] == WSvcConfig::GetStartType(SERVICE_BOOT_START)
-                                || startupIDs_[i] == WSvcConfig::GetStartType(SERVICE_SYSTEM_START)) {
+                    auto it = std::find(StartupIDs.begin(), StartupIDs.end(), item.GetStartup());
+                    startupID_ = std::distance(StartupIDs.begin(), it);
+                    ImGui::SetNextItemWidth(CharWidth * 15);
+                    if (ImGui::BeginCombo("##Startup", StartupIDs[startupID_].data(), ImGuiComboFlags_None)) {
+                        for (int i = 0; i < StartupIDs.size(); i++) {
+                            if (StartupIDs[i] == WSvcConfig::GetStartType(SERVICE_BOOT_START)
+                                || StartupIDs[i] == WSvcConfig::GetStartType(SERVICE_SYSTEM_START)) {
                                 continue;
                             }
                             bool isSelected = (startupID_ == i);
-                            if (ImGui::Selectable(startupIDs_[i].data(), isSelected)) {
+                            if (ImGui::Selectable(StartupIDs[i].data(), isSelected)) {
                                 if (startupID_ != i) {
-                                    SPDLOG_INFO("{} startup: {} -> {}", item.GetName(), startupIDs_[startupID_], startupIDs_[i]);
+                                    SPDLOG_INFO("{} startup: {} -> {}", item.GetName(), StartupIDs[startupID_], StartupIDs[i]);
                                     WSApp app(item.GetName());
-                                    app.SetStartup(WSvcConfig::GetStartType(startupIDs_[i]));
+                                    app.SetStartup(WSvcConfig::GetStartType(StartupIDs[i]));
                                     SyncItems();
                                     startupID_ = i;
                                 }
@@ -371,27 +452,26 @@ void ImGuiServiceWnd::Show()
                     }
                 }
                 if (ImGui::TableSetColumnIndex(ImGuiServiceWnd::ColumnID_State)) {
-                    auto it = std::find(stateIDs_.begin(), stateIDs_.end(), item.GetState());
-                    stateID_ = std::distance(stateIDs_.begin(), it);
-                    ImGui::SetNextItemWidth(charWidth * 15);
-                    if (ImGui::BeginCombo("##State", stateIDs_[stateID_].data(), ImGuiComboFlags_None)) {
-                        for (int i = 0; i < stateIDs_.size(); i++) {
-                            if (stateIDs_[i] == WSvcStatus::GetState(SERVICE_CONTINUE_PENDING)
-                                || stateIDs_[i] == WSvcStatus::GetState(SERVICE_PAUSE_PENDING)
-                                || stateIDs_[i] == WSvcStatus::GetState(SERVICE_START_PENDING)
-                                || stateIDs_[i] == WSvcStatus::GetState(SERVICE_STOP_PENDING)
-                                || stateIDs_[i] == WSvcStatus::GetState(SERVICE_PAUSED)
-                                || stateIDs_[i] == WSvcStatus::GetState(-1)) {
+                    auto it = std::find(StateIDs.begin(), StateIDs.end(), item.GetState());
+                    stateID_ = std::distance(StateIDs.begin(), it);
+                    ImGui::SetNextItemWidth(CharWidth * 15);
+                    if (ImGui::BeginCombo("##State", StateIDs[stateID_].data(), ImGuiComboFlags_None)) {
+                        for (int i = 0; i < StateIDs.size(); i++) {
+                            if (StateIDs[i] == WSvcStatus::GetState(SERVICE_CONTINUE_PENDING)
+                                || StateIDs[i] == WSvcStatus::GetState(SERVICE_PAUSE_PENDING)
+                                || StateIDs[i] == WSvcStatus::GetState(SERVICE_START_PENDING)
+                                || StateIDs[i] == WSvcStatus::GetState(SERVICE_STOP_PENDING)
+                                || StateIDs[i] == WSvcStatus::GetState(SERVICE_PAUSED)) {
                                 continue;
                             }
                             bool isSelected = (stateID_ == i);
-                            if (ImGui::Selectable(stateIDs_[i].data(), isSelected)) {
+                            if (ImGui::Selectable(StateIDs[i].data(), isSelected)) {
                                 if (stateID_ != i) {
-                                    SPDLOG_INFO("{} state: {} -> {}", item.GetName(), stateIDs_[stateID_], stateIDs_[i]);
+                                    SPDLOG_INFO("{} state: {} -> {}", item.GetName(), StateIDs[stateID_], StateIDs[i]);
                                     WSApp app(item.GetName());
-                                    if (stateIDs_[i] == WSvcStatus::GetState(SERVICE_RUNNING))
+                                    if (StateIDs[i] == WSvcStatus::GetState(SERVICE_RUNNING))
                                         app.Start();
-                                    else if (stateIDs_[i] == WSvcStatus::GetState(SERVICE_STOPPED))
+                                    else if (StateIDs[i] == WSvcStatus::GetState(SERVICE_STOPPED))
                                         app.Stop();
                                     SyncItems();
                                     stateID_ = i;
@@ -436,7 +516,9 @@ void ImGuiServiceWnd::Show()
 }
 
 ImGuiNavigationWnd::ImGuiNavigationWnd(ImGuiEngine* engine)
-    : ImGuiBaseWnd(engine), mode_(Mode_Self), columnID_(ImGuiServiceWnd::ColumnID_Path)
+    : ImGuiBaseWnd(engine), mode_(Mode_Self)
+    , columnID_(ImGuiServiceWnd::ColumnID_Path)
+    , propertyWnd_(engine_)
 {
     wndFlags_ = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove
         | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;
@@ -465,7 +547,6 @@ void ImGuiNavigationWnd::Show()
     else
         wndSize_.y = frameHeight * 3;
 
-    const float charWidth = ImGui::CalcTextSize("A").x;
     if (ImGui::BeginTable("table_tool", 3, mainTableFlags_)) {
         ImGui::TableSetupColumn("Mode", ImGuiTableColumnFlags_NoHide, 0.0f, ImGuiNavigationWnd::ColumnID_Mode);
         ImGui::TableSetupColumn("Control", ImGuiTableColumnFlags_NoHide, 0.0f, ImGuiNavigationWnd::ColumnID_Control);
@@ -504,41 +585,7 @@ void ImGuiNavigationWnd::Show()
             if (ImGui::Button("Add", ImVec2(60, 0)))
                 ImGui::OpenPopup("New Service Properties");
 
-            if (ImGui::BeginPopupModal("New Service Properties", NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
-                char str1[128] = "";
-                ImGui::InputTextWithHint("Name", "service's name", str1, IM_ARRAYSIZE(str1));
-
-                char alias[128] = "";
-                ImGui::InputTextWithHint("Alias", "service's alias", alias, IM_ARRAYSIZE(alias), ImGuiInputTextFlags_ReadOnly);
-                ImGui::InputTextWithHint("Type", "enter service's type", str1, IM_ARRAYSIZE(str1));
-                ImGui::InputTextWithHint("Startup", "enter service's startup", str1, IM_ARRAYSIZE(str1));
-                ImGui::InputTextWithHint("Path", "enter service's path", str1, IM_ARRAYSIZE(str1));
-
-                char desc[1024] = "123";
-                ImGui::InputTextMultiline("Description", desc, IM_ARRAYSIZE(desc),
-                    ImVec2(0, ImGui::GetTextLineHeight() * 5),
-                    ImGuiInputTextFlags_AllowTabInput);
-
-                static bool dont_ask_me_next_time = false;
-                ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
-                ImGui::Checkbox("Don't ask me next time", &dont_ask_me_next_time);
-                ImGui::PopStyleVar();
-                ImGui::Separator();
-
-                if (ImGui::Button("OK", ImVec2(120, 0))) {
-                    // TODO
-                    ImGui::CloseCurrentPopup();
-                }
-
-                ImGui::SameLine();
-
-                if (ImGui::Button("Cancel", ImVec2(120, 0)))
-                    ImGui::CloseCurrentPopup();
-
-                ImGui::EndPopup();
-            }
-
-
+            propertyWnd_.Show();
             ImGui::SameLine();
 
             if (ImGui::Button("Delete", ImVec2(60, 0)))
@@ -569,7 +616,7 @@ void ImGuiNavigationWnd::Show()
             ImGui::Text("Filter:");
             ImGui::SameLine();
 
-            filter_.Draw("##Filter:", wndSize_.x - charWidth * 89);
+            filter_.Draw("##Filter:", wndSize_.x - CharWidth * 89);
             if (ImGui::IsItemFocused() && ImGui::IsKeyPressed(ImGuiKey_Enter)) {
                 GetEngine().GetServiceWnd().SyncItems();
             }
@@ -577,7 +624,7 @@ void ImGuiNavigationWnd::Show()
 
             ImGui::Text("@");
             ImGui::SameLine();
-            ImGui::SetNextItemWidth(charWidth * 10);
+            ImGui::SetNextItemWidth(CharWidth * 10);
 
             auto& items = engine_->GetServiceWnd().GetColumnIDs();
             if (ImGui::BeginCombo("##Item", items[columnID_].data(), filterComboFlags_)) {
@@ -667,8 +714,12 @@ void ImGuiEngine::ShowMainWnd(bool hasVsync)
 
 void ImGuiEngine::ShowWidgetWnd()
 {
+    if (!ImGuiBaseWnd::CharWidth)
+        ImGuiBaseWnd::CharWidth = ImGui::CalcTextSize("A").x;
+
     bool closeState = true;
     //ImGui::ShowDemoWindow(&closeState);
+
 
     navWnd_.Show();
     servWnd_.Show();

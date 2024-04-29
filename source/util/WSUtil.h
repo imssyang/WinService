@@ -19,7 +19,7 @@
 #include <vector>
 #include "spdlog/spdlog.h"
 
-#define SERVICE_WIN32_APP_AS_SERVICE 0x55FFAAFF
+#define SERVICE_WIN32_AS_SERVICE 0x55FFAAFF
 #define SPDLOG_COUT(...) SPDLOG_LOGGER_INFO(spdlog::get("cout").get(), __VA_ARGS__)
 
 struct WSvcBase
@@ -28,35 +28,64 @@ struct WSvcBase
     std::string displayName;
     unsigned long serviceType;
 
-    std::string GetServiceType() const {
-        switch (serviceType) {
-            case SERVICE_KERNEL_DRIVER:
-                return "Driver";
-            case SERVICE_FILE_SYSTEM_DRIVER:
-                return "FSDriver";
-            case SERVICE_WIN32_OWN_PROCESS:
-            case SERVICE_WIN32_OWN_PROCESS | SERVICE_INTERACTIVE_PROCESS:
-                return "OwnProcess";
-            case SERVICE_WIN32_SHARE_PROCESS:
-            case SERVICE_WIN32_SHARE_PROCESS | SERVICE_INTERACTIVE_PROCESS:
-                return "ShareProcess";
-            default:
-                return "Application";
-        }
+    std::string GetType() const {
+        return GetType(serviceType);
     }
 
-    void SetServiceType(const std::string& svcType, bool isInteractive) {
+    static unsigned long GetType(const std::string& svcType, bool isInteractive) {
 	    DWORD dwInteractiveBit = isInteractive ? SERVICE_INTERACTIVE_PROCESS : 0;
-        if (svcType == "Driver")
-            serviceType = SERVICE_KERNEL_DRIVER;
-        else if (svcType == "FSDriver")
-            serviceType = SERVICE_FILE_SYSTEM_DRIVER;
-        else if (svcType == "OwnProcess")
-            serviceType = SERVICE_WIN32_OWN_PROCESS | dwInteractiveBit;
-        else if (svcType == "ShareProcess")
-            serviceType = SERVICE_WIN32_SHARE_PROCESS | dwInteractiveBit;
-        else if (svcType == "Application")
-            serviceType = SERVICE_WIN32_APP_AS_SERVICE;
+        if (svcType == "Kernel")
+            return SERVICE_KERNEL_DRIVER;
+        else if (svcType == "FileSystem")
+            return SERVICE_FILE_SYSTEM_DRIVER;
+        else if (svcType == "Recognizer")
+            return SERVICE_RECOGNIZER_DRIVER;
+        else if (svcType == "Adapter")
+            return SERVICE_ADAPTER;
+        else if (svcType == "WinOwn")
+            return SERVICE_WIN32_OWN_PROCESS | dwInteractiveBit;
+        else if (svcType == "WinShare")
+            return SERVICE_WIN32_SHARE_PROCESS | dwInteractiveBit;
+        else if (svcType == "Win32")
+            return SERVICE_WIN32;
+        else if (svcType == "AsService")
+            return SERVICE_WIN32_AS_SERVICE;
+        else
+            return 0;
+    }
+
+    static std::string GetType(unsigned long svcType) {
+        switch (svcType) {
+            case SERVICE_KERNEL_DRIVER:
+                return "Kernel";
+            case SERVICE_FILE_SYSTEM_DRIVER:
+                return "FileSystem";
+            case SERVICE_RECOGNIZER_DRIVER:
+                return "Recognizer";
+            case SERVICE_DRIVER:
+                return "Driver";
+            case SERVICE_ADAPTER:
+                return "Adapter";
+            case SERVICE_WIN32_OWN_PROCESS:
+                return "WinOwn";
+            case SERVICE_WIN32_SHARE_PROCESS:
+                return "WinShare";
+            case SERVICE_WIN32:
+                return "Win32";
+            case SERVICE_USER_OWN_PROCESS:
+                return "UserOwn";
+            case SERVICE_USER_SHARE_PROCESS:
+                return "UserShare";
+            case SERVICE_WIN32_AS_SERVICE:
+                return "AsService";
+            default:
+                std::stringstream ss;
+                ss << std::hex << svcType;
+                if (svcType & SERVICE_INTERACTIVE_PROCESS)
+                    return "Inter(" + ss.str() + ")";
+                else
+                    return "Extend(" + ss.str() + ")";
+        }
     }
 };
 
