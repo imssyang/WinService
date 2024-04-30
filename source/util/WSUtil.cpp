@@ -263,20 +263,3 @@ void PrintStackContext(CONTEXT* ctx)
     }
 #endif // DEBUG
 }
-
-std::string ToMultiLine(const std::string& line, int charNum)
-{
-    std::string multiline(line);
-    int count = 0;
-    for (int i = 0; i < multiline.size(); i++) {
-        if (count >= charNum) {
-            if (std::isspace(multiline[i])) {
-                multiline[i] = '\n';
-                count = 0;
-            }
-        }
-        count++;
-    }
-
-    return std::move(multiline);
-}

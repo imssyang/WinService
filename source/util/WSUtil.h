@@ -32,7 +32,7 @@ struct WSvcBase
         return GetType(serviceType);
     }
 
-    static unsigned long GetType(const std::string& svcType, bool isInteractive) {
+    static unsigned long GetType(const std::string& svcType, bool isInteractive = false) {
 	    DWORD dwInteractiveBit = isInteractive ? SERVICE_INTERACTIVE_PROCESS : 0;
         if (svcType == "Kernel")
             return SERVICE_KERNEL_DRIVER;
@@ -246,5 +246,3 @@ struct RtlContextException
 
     CONTEXT Context;
 };
-
-std::string ToMultiLine(const std::string& line, int charNum);

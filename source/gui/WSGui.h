@@ -56,6 +56,13 @@ private:
 class ImGuiBaseWnd
 {
 public:
+    static std::string ToMultiLine(const std::string& line, int charNum);
+    static std::string ToOneLine(const std::string& multiline);
+    static float CharWidth;
+    static std::vector<std::string> TypeIDs;
+    static std::vector<std::string> StartupIDs;
+    static std::vector<std::string> StateIDs;
+
     ImGuiBaseWnd(ImGuiEngine* engine)
         : engine_(engine), wndFlags_(ImGuiWindowFlags_None) {}
 
@@ -63,12 +70,6 @@ public:
     const ImVec2& GetPos() const { return wndPos_; }
     const ImVec2& GetSize() const { return wndSize_; }
     template<typename... Args> void HelpTip(Args... args);
-
-public:
-    static float CharWidth;
-    static std::vector<std::string> TypeIDs;
-    static std::vector<std::string> StartupIDs;
-    static std::vector<std::string> StateIDs;
 
 protected:
     ImGuiEngine *engine_;
@@ -80,17 +81,23 @@ protected:
 class ImGuiPropertyWnd : public ImGuiBaseWnd
 {
 public:
-    ImGuiPropertyWnd(ImGuiEngine* engine);
+    ImGuiPropertyWnd(ImGuiEngine* engine, const std::string& title);
+    std::string GetTitle() const { return title_; }
 
-    void Show();
+    void Show(const ImGuiServiceItem* item = nullptr);
 
 private:
+    std::string title_;
     int typeID_;
     int startupID_;
-    char svcName[256];
-    char svcAlias[256];
-    char svcPath[1024];
-    char svcDesc[2048];
+    char svcID_[256];
+    char svcType_[256];
+    char svcName_[256];
+    char svcAlias_[256];
+    char svcStartup_[256];
+    char svcState_[256];
+    char svcPath_[1024];
+    char svcDesc_[2048];
 };
 
 class ImGuiServiceWnd : public ImGuiBaseWnd
@@ -122,6 +129,7 @@ private:
     std::vector<ImGuiServiceItem> items_;
     ImVector<int> selection_;
     ImGuiTableFlags servTableFlags_;
+    ImGuiPropertyWnd propertyWnd_;
 };
 
 class ImGuiNavigationWnd : public ImGuiBaseWnd
