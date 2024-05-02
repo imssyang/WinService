@@ -84,6 +84,7 @@ public:
     ImGuiPropertyWnd(ImGuiEngine* engine, const std::string& title);
     std::string GetTitle() const { return title_; }
 
+    void Reset();
     void Show(const ImGuiServiceItem* item = nullptr);
 
 private:
@@ -118,6 +119,8 @@ public:
     ImGuiServiceWnd(ImGuiEngine* engine);
 
     const std::vector<std::string>& GetColumnIDs() const { return columnIDs_; }
+    const std::vector<ImGuiServiceItem> GetItems() const { return items_; }
+    const ImVector<int> GetSelections() const { return selections_; }
     void SyncItems();
 
     void Show();
@@ -127,7 +130,7 @@ private:
     int stateID_;
     std::vector<std::string> columnIDs_;
     std::vector<ImGuiServiceItem> items_;
-    ImVector<int> selection_;
+    ImVector<int> selections_;
     ImGuiTableFlags servTableFlags_;
     ImGuiPropertyWnd propertyWnd_;
 };
