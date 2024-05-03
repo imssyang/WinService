@@ -74,8 +74,12 @@ VOID WINAPI WSAgent::ServiceMainProc(DWORD argc, LPTSTR *argv)
 {
     std::string name = (LPSTR)argv[0];
     auto& app = WSAgent(name);
-    app.GetConfig();
+    auto wscopt = app.GetConfig();
+    if (!wscopt) {
+        return;
+    }
 
+    auto& appConfig = wscopt.value();
     app.svcStatusHandle_ = RegisterServiceCtrlHandlerEx(
         (LPTSTR)app.GetName().data(), CtrlHandlerProc, &app);
     if (!app.svcStatusHandle_) {

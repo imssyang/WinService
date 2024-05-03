@@ -28,6 +28,5 @@ private:
 private:
     std::string name_;
     std::string alias_;
-    std::string desc_;
     std::string path_;
 };

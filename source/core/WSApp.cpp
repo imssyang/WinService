@@ -34,7 +34,6 @@ bool WSApp::Install(const std::string& path)
         return false;
     }
 
-    path_ = path;
     CloseServiceHandle(service);
     SPDLOG_INFO("{} service installed successfully", name_);
     return true;
@@ -74,7 +73,6 @@ bool WSApp::SetDescription(const std::string& desc)
         return false;
     }
 
-    desc_ = desc;
     SPDLOG_INFO("{} service description updated successfully.", name_);
     return true;
 }
@@ -122,6 +120,8 @@ std::optional<WSvcConfig> WSApp::GetConfig(bool hasDesc)
     if (!lpsd)
         lpsd = (LPSERVICE_DESCRIPTION) LocalAlloc(LMEM_ZEROINIT, 0);
 
+    alias_ = lpsc->lpDisplayName;
+    path_ = lpsc->lpBinaryPathName;
     result = std::make_optional<WSvcConfig>(name_, *lpsc, *lpsd);
 
 svc_cleanup:

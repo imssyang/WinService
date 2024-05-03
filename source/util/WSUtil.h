@@ -9,6 +9,7 @@
 #endif
 #include <cstdio>
 #include <codecvt>
+#include <filesystem>
 #include <iostream>
 #include <locale>
 #include <map>

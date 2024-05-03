@@ -257,9 +257,7 @@ void ImGuiPropertyWnd::Show(const ImGuiServiceItem* item)
                 sprintf_s(svcStartup_, IM_ARRAYSIZE(svcStartup_), "%s", item->GetStartup().data());
                 sprintf_s(svcState_, IM_ARRAYSIZE(svcState_), "%s (%d)", item->GetState().data(), item->GetPID());
                 if (item->GetSvcConfig().serviceType == SERVICE_WIN32_AS_SERVICE) {
-                    auto sss = WSAgent::GetPath(item->GetPath());
-                    SPDLOG_INFO("----------{}", sss);
-                    sprintf_s(svcPath_, IM_ARRAYSIZE(svcPath_), "%s", sss.data());
+                    sprintf_s(svcPath_, IM_ARRAYSIZE(svcPath_), "%s", WSAgent::GetPath(item->GetPath()).data());
                 } else {
                     sprintf_s(svcPath_, IM_ARRAYSIZE(svcPath_), "%s", item->GetPath().data());
                 }

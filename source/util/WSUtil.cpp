@@ -117,10 +117,12 @@ void InitSpdlog(bool isGui, bool enableFile)
             auto file_formatter = std::make_unique<spdlog::pattern_formatter>();
             file_formatter->add_flag<wsm_formatter_flag>('*').set_pattern("[%P %C-%m-%d %H:%M:%S.%e %^%L%$ %s:%#:%!:%t] %v%*");
 
-            auto file_path = GetLogDirectory() + "\\winsvc.log";
+            std::filesystem::path log_dir(GetLogDirectory());
+            std::filesystem::path file_name("winsvc.log");
+            std::filesystem::path file_path = log_dir / file_name;
             auto max_size = 1024 * 1024 * 50; // 50MB
             auto max_files = 3;
-            file_sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(file_path, max_size, max_files);
+            file_sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(file_path.string(), max_size, max_files);
             file_sink->set_level(spdlog::level::info);
             file_sink->set_formatter(std::move(file_formatter));
 
@@ -143,14 +145,16 @@ void InitSpdlog(bool isGui, bool enableFile)
 
 void WriteServiceLog(const std::string& svcName, const std::string& logContext)
 {
-    auto logPath = GetLogDirectory() + "\\" + svcName + ".log";
-    std::ofstream logFile(logPath, std::ios::app);
+    std::filesystem::path logDir(GetLogDirectory());
+    std::filesystem::path logName(svcName + ".log");
+    std::filesystem::path logPath = logDir / logName;
+    std::ofstream logFile(logPath.string(), std::ios::app);
     if (!logFile) {
-        logFile.open(logPath, std::ios::out);
+        logFile.open(logPath.string(), std::ios::out);
     }
 
     if (!logFile.is_open()) {
-        SPDLOG_ERROR("{} can't open!", logPath);
+        SPDLOG_ERROR("{} can't open!", logPath.string());
         return;
     }
 
@@ -172,9 +176,11 @@ std::string GetWorkDirectory()
 
 std::string GetLogDirectory()
 {
-    auto logDir = GetWorkDirectory() + "\\logs";
-    CreateDirectory(logDir.data(), NULL);
-    return logDir;
+    std::filesystem::path workDir(GetWorkDirectory());
+    std::filesystem::path subLog("logs");
+    std::filesystem::path logDir = workDir / subLog;
+    CreateDirectory(logDir.string().data(), NULL);
+    return logDir.string();
 }
 
 std::string UTF8toANSI(const std::string& utf8)
