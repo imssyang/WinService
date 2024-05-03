@@ -1,6 +1,6 @@
 #pragma once
 
-#include "util/WSUtil.h"
+#include "util/wsutil.h"
 
 struct WSHandle final
 {

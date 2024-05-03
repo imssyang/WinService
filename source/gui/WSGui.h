@@ -1,7 +1,7 @@
 #pragma once
 
 #include <d3d11.h>
-#include "util/WSUtil.h"
+#include "util/wsutil.h"
 #include "imgui/imgui.h"
 
 class D3D11Device

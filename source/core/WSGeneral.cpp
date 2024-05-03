@@ -1,4 +1,4 @@
-#include "core/WSGeneral.h"
+#include "core/wsgeneral.h"
 
 #pragma comment(lib, "advapi32.lib")
 

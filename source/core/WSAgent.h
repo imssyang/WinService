@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core/WSApp.h"
+#include "core/wsapp.h"
 
 class WSAgent : public WSApp
 {

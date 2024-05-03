@@ -1,8 +1,8 @@
 #include "gui/resource.h"
-#include "gui/WSGui.h"
-#include "core/WSGeneral.h"
-#include "core/WSAgent.h"
-#include "cmd/WSCmd.h"
+#include "gui/wsgui.h"
+#include "core/wsgeneral.h"
+#include "core/wsagent.h"
+#include "cmd/wscmd.h"
 #include "imgui/imgui.h"
 #include "imgui/backends/imgui_impl_win32.h"
 #include "imgui/backends/imgui_impl_dx11.h"
@@ -802,11 +802,11 @@ ImGuiEngine::ImGuiEngine(HWND hwnd)
     auto* fontAtlas = io.Fonts;
     auto* glyphRanges = fontAtlas->GetGlyphRangesChineseSimplifiedCommon();
     fonts_[Font_Default] = fontAtlas->AddFontDefault();
-    fonts_[Font_STZhongsong] = fontAtlas->AddFontFromFileTTF("source/gui/res/font/STZhongsong.ttf", 18.0f, nullptr, glyphRanges);
-    fonts_[Font_STXihei] = fontAtlas->AddFontFromFileTTF("source/gui/res/font/STXihei.ttf", 18.0f, nullptr, glyphRanges);
-    fonts_[Font_MSYaHei] = fontAtlas->AddFontFromFileTTF("source/gui/res/font/MSYaHei.ttc", 18.0f, nullptr, glyphRanges);
-    fonts_[Font_MSYaHeiLight] = fontAtlas->AddFontFromFileTTF("source/gui/res/font/MSYaHeiLight.ttc", 18.0f, nullptr, glyphRanges);
-    fonts_[Font_MSYaheiBold] = fontAtlas->AddFontFromFileTTF("source/gui/res/font/MSYaheiBold.ttc", 18.0f, nullptr, glyphRanges);
+    fonts_[Font_STZhongsong] = fontAtlas->AddFontFromFileTTF("source/gui/resource/font/STZhongsong.ttf", 18.0f, nullptr, glyphRanges);
+    fonts_[Font_STXihei] = fontAtlas->AddFontFromFileTTF("source/gui/resource/font/STXihei.ttf", 18.0f, nullptr, glyphRanges);
+    fonts_[Font_MSYaHei] = fontAtlas->AddFontFromFileTTF("source/gui/resource/font/MSYaHei.ttc", 18.0f, nullptr, glyphRanges);
+    fonts_[Font_MSYaHeiLight] = fontAtlas->AddFontFromFileTTF("source/gui/resource/font/MSYaHeiLight.ttc", 18.0f, nullptr, glyphRanges);
+    fonts_[Font_MSYaheiBold] = fontAtlas->AddFontFromFileTTF("source/gui/resource/font/MSYaheiBold.ttc", 18.0f, nullptr, glyphRanges);
     io.FontDefault = fonts_[Font_Default];
 #endif
 

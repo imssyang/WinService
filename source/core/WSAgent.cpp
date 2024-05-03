@@ -1,6 +1,6 @@
-#include "util/WSArg.h"
-#include "core/WSAgent.h"
-#include "core/WSGeneral.h"
+#include "util/wsarg.h"
+#include "core/wsagent.h"
+#include "core/wsgeneral.h"
 
 #pragma comment(lib, "User32.lib")
 

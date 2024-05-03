@@ -25,13 +25,13 @@ CFLAG = $(CFLAG) /D "IMGUI_ENABLE_FREETYPE"
 !ENDIF
 
 CFLAG = $(CFLAG) /I $(SOURCE) /I $(SOURCE)/util
-CFLAG_GUI = $(CFLAG) /I $(SOURCE)/res
 CFLAG_GUI = $(CFLAG) /I $(SOURCE)/gui
+CFLAG_GUI = $(CFLAG) /I $(SOURCE)/gui/resource
 CFLAG_GUI = $(CFLAG_GUI) /I $(SOURCE)/gui/imgui
 CFLAG_GUI = $(CFLAG_GUI) /I $(SOURCE)/gui/imgui/backends
 CFLAG_GUI = $(CFLAG_GUI) /I $(SOURCE)/gui/imgui/misc/freetype
 CFLAG_GUI = $(CFLAG_GUI) /I $(SOURCE)/gui/freetype/include
-RFLAG_GUI = /I $(SOURCE) /I $(SOURCE)/res /I $(SOURCE)/gui
+RFLAG_GUI = /I $(SOURCE) /I $(SOURCE)/gui /I $(SOURCE)/gui/resource
 LFLAG_GUI = $(LFLAG) /SUBSYSTEM:WINDOWS /LIBPATH:"$(SOURCE)/gui/freetype/lib"
 
 {$(SOURCE)\util}.cpp{$(BUILD)\util}.obj:
@@ -50,11 +50,11 @@ core_obj: $(BUILD)/core/*.obj
 cmd_obj: $(BUILD)/cmd/*.obj
 
 {$(BUILD)\cmd}.obj{$(BUILD)\cmd}.exe:
-  $(LINK) $(LFLAG) /out:"$(@D)/$(PROGRAM).exe" \
+  $(LINK) $(LFLAG) /out:"$(@D)/$(PROGRAM)_cmd.exe" \
     $(BUILD)/util/*.obj \
     $(BUILD)/core/*.obj \
     $<
-cmd_exe: $(BUILD)/cmd/WSCmd.exe
+cmd_exe: $(BUILD)/cmd/wscmd.exe
 
 cmd: util_obj core_obj cmd_obj cmd_exe
 
@@ -73,10 +73,10 @@ gui_imgui_obj: $(BUILD)/gui/imgui/*.obj $(BUILD)/gui/imgui/backends/*.obj $(BUIL
 gui_imgui_obj: $(BUILD)/gui/imgui/*.obj $(BUILD)/gui/imgui/backends/*.obj
 !ENDIF
 
-{$(SOURCE)\gui\res}.rc{$(BUILD)\gui\res}.res:
-  mkdir -p $(BUILD)/gui/res
+{$(SOURCE)\gui\resource}.rc{$(BUILD)\gui\resource}.res:
+  mkdir -p $(BUILD)/gui/resource
   $(RC) $(RFLAG_GUI) /Fo"$@" $<
-gui_res: $(BUILD)/gui/res/main.res
+gui_res: $(BUILD)/gui/resource/main.res
 
 {$(SOURCE)\gui}.cpp{$(BUILD)\gui}.obj:
   mkdir -p $(BUILD)/gui
@@ -90,16 +90,16 @@ gui_obj: $(BUILD)/gui/*.obj
     $(BUILD)/cmd/*.obj \
     $(BUILD)/gui/imgui/*.obj \
     $(BUILD)/gui/imgui/backends/*.obj \
-    $(BUILD)/gui/res/main.res \
+    $(BUILD)/gui/resource/main.res \
 !IFDEF FREETYPE
     $(BUILD)/gui/imgui/misc/freetype/*.obj \
     freetype.lib \
 !ENDIF
     $<
-  $(MT) -manifest $(SOURCE)/gui/res/manifest.xml \
-    -outputresource:$(BUILD)/gui/$(PROGRAM).exe;#1
+  $(MT) -manifest $(SOURCE)/gui/resource/manifest.xml \
+    -outputresource:$(BUILD)/gui/$(PROGRAM).exe
 
-gui_exe: $(BUILD)/gui/WSGui.exe
+gui_exe: $(BUILD)/gui/wsgui.exe
 
 gui: cmd gui_imgui_obj gui_obj gui_res gui_exe
 

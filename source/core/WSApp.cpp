@@ -1,5 +1,5 @@
-#include "core/WSApp.h"
-#include "core/WSGeneral.h"
+#include "core/wsapp.h"
+#include "core/wsgeneral.h"
 
 WSApp::WSApp(const std::string& name, const std::string& alias)
     : name_(name), alias_(alias)

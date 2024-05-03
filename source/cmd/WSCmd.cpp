@@ -1,7 +1,7 @@
 #include "tabulate/table.hpp"
-#include "util/WSArg.h"
-#include "core/WSGeneral.h"
-#include "core/WSAgent.h"
+#include "util/wsarg.h"
+#include "core/wsgeneral.h"
+#include "core/wsagent.h"
 
 int ConsoleMain(int argc, char *argv[], bool hasConsole)
 {
@@ -70,7 +70,7 @@ int ConsoleMain(int argc, char *argv[], bool hasConsole)
             }
 
             services_table.add_row({s.serviceName, s.displayName,
-                s.GetType(), s.GetCurrentState(), std::to_string(s.processId),
+                config.GetType(), s.GetCurrentState(), std::to_string(s.processId),
                 config.binaryPathName, config.GetStartType()});
         }
 
