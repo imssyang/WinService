@@ -1,5 +1,6 @@
 
 MC = mc /U
+MT = mt
 RC = rc /v
 CC = cl /c /nologo
 LINK = link /nologo
@@ -95,6 +96,8 @@ gui_obj: $(BUILD)/gui/*.obj
     freetype.lib \
 !ENDIF
     $<
+  $(MT) -manifest $(SOURCE)/gui/res/manifest.xml \
+    -outputresource:$(BUILD)/gui/$(PROGRAM).exe;#1
 
 gui_exe: $(BUILD)/gui/WSGui.exe
 

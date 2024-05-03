@@ -237,12 +237,12 @@ void ImGuiPropertyWnd::Reset()
 
 void ImGuiPropertyWnd::Show(const ImGuiServiceItem* item)
 {
-    std::string nameTitle("Name");
+    std::string readFlag;
     ImGuiInputTextFlags itemFlags = ImGuiInputTextFlags_None;
     ImGui::SetNextWindowSize(ImVec2(CharWidth * 100, ImGui::GetTextLineHeight() * 20), ImGuiCond_Once);
     if (ImGui::BeginPopupModal(title_.data(), NULL, ImGuiWindowFlags_None)) {
         if (item) {
-            nameTitle += "*";
+            readFlag = "*";
             itemFlags = ImGuiInputTextFlags_ReadOnly;
             if (0 == strcmp(svcName_, "") || 0 != strcmp(svcName_, item->GetName().data())) {
                 auto itStartup = std::find(StartupIDs.begin(), StartupIDs.end(), item->GetStartup());
@@ -272,8 +272,8 @@ void ImGuiPropertyWnd::Show(const ImGuiServiceItem* item)
         if (item) {
             ImGui::InputTextWithHint("ID*", "service's id", svcID_, IM_ARRAYSIZE(svcID_), ImGuiInputTextFlags_ReadOnly);
         }
-        ImGui::InputTextWithHint(nameTitle.data(), "service's name", svcName_, IM_ARRAYSIZE(svcName_), itemFlags);
-        ImGui::InputTextWithHint("Alias", "service's alias", svcAlias_, IM_ARRAYSIZE(svcAlias_));
+        ImGui::InputTextWithHint(std::string("Name" + readFlag).data(), "service's name", svcName_, IM_ARRAYSIZE(svcName_), itemFlags);
+        ImGui::InputTextWithHint(std::string("Alias" + readFlag).data(), "service's alias", svcAlias_, IM_ARRAYSIZE(svcAlias_), itemFlags);
         if (item) {
             ImGui::InputTextWithHint("Type*", "service's type", svcType_, IM_ARRAYSIZE(svcType_), itemFlags);
         } else {
@@ -319,7 +319,7 @@ void ImGuiPropertyWnd::Show(const ImGuiServiceItem* item)
                 ImGui::EndCombo();
             }
         }
-        ImGui::InputTextWithHint("Execute", "service's path", svcPath_, IM_ARRAYSIZE(svcPath_));
+        ImGui::InputTextWithHint(std::string("Execute" + readFlag).data(), "service's path", svcPath_, IM_ARRAYSIZE(svcPath_), itemFlags);
         if (ImGui::InputTextMultiline("Description", svcDesc_, IM_ARRAYSIZE(svcDesc_),
             ImVec2(0, ImGui::GetContentRegionAvail().y - ImGui::GetTextLineHeight() * 2.2),
             ImGuiInputTextFlags_None)) {
@@ -327,7 +327,6 @@ void ImGuiPropertyWnd::Show(const ImGuiServiceItem* item)
             std::string oneLine = ToOneLine(svcDesc_);
             std::string multiDesc = ToMultiLine(oneLine, charNum);
             sprintf_s(svcDesc_, IM_ARRAYSIZE(svcDesc_), "%s", multiDesc.data());
-            //SPDLOG_INFO("Service desc: {}|{} -> {}", charNum, svcDesc_, multiDesc);
         }
         if (ImGui::IsItemClicked()) {
             std::string freshDesc(svcDesc_);
@@ -339,18 +338,22 @@ void ImGuiPropertyWnd::Show(const ImGuiServiceItem* item)
         ImGui::Separator();
 
         if (ImGui::Button("OK", ImVec2(120, 0))) {
-            SPDLOG_INFO("New @ {}|{}|{}|{}|{}",
+            SPDLOG_INFO("Ok @ {}|{}|{}|{}|{}",
                 TypeIDs[typeID_], StartupIDs[startupID_], svcName_, svcAlias_, svcPath_);
             if (TypeIDs[typeID_] == WSvcBase::GetType(SERVICE_WIN32_AS_SERVICE)) {
                 WSAgent app(svcName_, svcAlias_);
-                app.Install(svcPath_);
+                if (!item) {
+                    app.Install(svcPath_);
+                }
                 app.SetDescription(svcDesc_);
             } else if (TypeIDs[typeID_] == WSvcBase::GetType(SERVICE_WIN32)) {
                 WSApp app(svcName_, svcAlias_);
-                app.Install(svcPath_);
+                if (!item) {
+                    app.Install(svcPath_);
+                }
                 app.SetDescription(svcDesc_);
             } else {
-                SPDLOG_ERROR("New @ {} unsupport type: 0X{:X}", svcName_, typeID_);
+                SPDLOG_ERROR("{} unsupport type: 0X{:X}", svcName_, typeID_);
             }
             Reset();
             GetEngine().GetServiceWnd().SyncItems();
@@ -360,6 +363,7 @@ void ImGuiPropertyWnd::Show(const ImGuiServiceItem* item)
         if (ImGui::Button("Cancel", ImVec2(120, 0))) {
             SPDLOG_INFO("Cancel @ {}|{}|{}|{}|{}",
                 TypeIDs[typeID_], StartupIDs[startupID_], svcName_, svcAlias_, svcPath_);
+            Reset();
             ImGui::CloseCurrentPopup();
         }
         ImGui::EndPopup();
@@ -851,10 +855,6 @@ void ImGuiEngine::ShowWidgetWnd()
 {
     if (!ImGuiBaseWnd::CharWidth)
         ImGuiBaseWnd::CharWidth = ImGui::CalcTextSize("A").x;
-
-    bool closeState = true;
-    //ImGui::ShowDemoWindow(&closeState);
-
 
     navWnd_.Show();
     servWnd_.Show();

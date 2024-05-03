@@ -154,7 +154,7 @@ bool WSApp::SetStartup(DWORD type)
 
 bool WSApp::Start()
 {
-    WSHandle wsHandle(SC_MANAGER_ENUMERATE_SERVICE, SERVICE_ALL_ACCESS, name_);
+    WSHandle wsHandle(SC_MANAGER_ENUMERATE_SERVICE, SERVICE_START | SERVICE_QUERY_STATUS, name_);
     if (!wsHandle.Check())
         return false;
 

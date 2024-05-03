@@ -17,7 +17,7 @@ WSHandle::WSHandle(
     if (!svcName.empty()) {
         Service = OpenService(Manager, svcName.data(), svcDesiredAccess);
         if (!Service) {
-            SPDLOG_ERROR("OpenService({}) failed! WinApi@", svcName);
+            SPDLOG_ERROR("OpenService({}, 0X{:X}) failed! WinApi@", svcName, svcDesiredAccess);
             return;
         }
 
