@@ -256,7 +256,13 @@ void ImGuiPropertyWnd::Show(const ImGuiServiceItem* item)
                 sprintf_s(svcAlias_, IM_ARRAYSIZE(svcAlias_), "%s", item->GetAlias().data());
                 sprintf_s(svcStartup_, IM_ARRAYSIZE(svcStartup_), "%s", item->GetStartup().data());
                 sprintf_s(svcState_, IM_ARRAYSIZE(svcState_), "%s (%d)", item->GetState().data(), item->GetPID());
-                sprintf_s(svcPath_, IM_ARRAYSIZE(svcPath_), "%s", item->GetPath().data());
+                if (item->GetSvcConfig().serviceType == SERVICE_WIN32_AS_SERVICE) {
+                    auto sss = WSAgent::GetPath(item->GetPath());
+                    SPDLOG_INFO("----------{}", sss);
+                    sprintf_s(svcPath_, IM_ARRAYSIZE(svcPath_), "%s", sss.data());
+                } else {
+                    sprintf_s(svcPath_, IM_ARRAYSIZE(svcPath_), "%s", item->GetPath().data());
+                }
                 sprintf_s(svcDesc_, IM_ARRAYSIZE(svcDesc_), "%s", item->GetDesc().data());
                 SPDLOG_INFO("Item {}|{}|{}|{}|{}",
                     TypeIDs[typeID_], StartupIDs[startupID_], svcName_, svcAlias_, svcPath_);
@@ -315,9 +321,7 @@ void ImGuiPropertyWnd::Show(const ImGuiServiceItem* item)
                 ImGui::EndCombo();
             }
         }
-        if (ImGui::InputTextWithHint("Execute", "service's path", svcPath_, IM_ARRAYSIZE(svcPath_))) {
-            SPDLOG_INFO("Service path: {}", svcPath_);
-        }
+        ImGui::InputTextWithHint("Execute", "service's path", svcPath_, IM_ARRAYSIZE(svcPath_));
         if (ImGui::InputTextMultiline("Description", svcDesc_, IM_ARRAYSIZE(svcDesc_),
             ImVec2(0, ImGui::GetContentRegionAvail().y - ImGui::GetTextLineHeight() * 2.2),
             ImGuiInputTextFlags_None)) {
@@ -325,7 +329,7 @@ void ImGuiPropertyWnd::Show(const ImGuiServiceItem* item)
             std::string oneLine = ToOneLine(svcDesc_);
             std::string multiDesc = ToMultiLine(oneLine, charNum);
             sprintf_s(svcDesc_, IM_ARRAYSIZE(svcDesc_), "%s", multiDesc.data());
-            SPDLOG_INFO("Service desc: {}|{} -> {}", charNum, svcDesc_, multiDesc);
+            //SPDLOG_INFO("Service desc: {}|{} -> {}", charNum, svcDesc_, multiDesc);
         }
         if (ImGui::IsItemClicked()) {
             std::string freshDesc(svcDesc_);
@@ -444,8 +448,11 @@ void ImGuiServiceWnd::SyncItems()
         }
 
         if (mode == ImGuiNavigationWnd::Mode_Self) {
-            if (config.binaryPathName.find("RunAsService") != std::string::npos) {
-                items_.push_back(std::move(item));
+            if (config.binaryPathName.find("winsvc") != std::string::npos
+                || config.binaryPathName.find("srvman") != std::string::npos) {
+                if (config.binaryPathName.find("RunAsService") != std::string::npos) {
+                    items_.push_back(std::move(item));
+                }
             }
         } else if (mode == ImGuiNavigationWnd::Mode_All) {
             items_.push_back(std::move(item));
@@ -583,7 +590,7 @@ void ImGuiServiceWnd::Show()
                                     if (StateIDs[i] == WSvcStatus::GetState(SERVICE_RUNNING))
                                         app.Start();
                                     else if (StateIDs[i] == WSvcStatus::GetState(SERVICE_STOPPED))
-                                        app.Stop();
+                                        app.Stop(3000);
                                     SyncItems();
                                     stateID_ = i;
                                 }
@@ -716,13 +723,13 @@ void ImGuiNavigationWnd::Show()
                         ImGui::CloseCurrentPopup();
                     } else {
                         auto& selectItem = *selectIt;
-                        auto& selectName = selectItem.GetName() + " (" + selectItem.GetAlias() + ")";
+                        auto& selectName = selectItem.GetName() + ", " + selectItem.GetAlias();
                         ImGui::Text("\"%s\" service will be deleted.\nThis operation cannot be undone!", selectName.data());
                         ImGui::Separator();
 
                         if (ImGui::Button("OK", ImVec2(120, 0))) {
                             SPDLOG_INFO("Delete @ {}", selectName);
-                            WSApp app(selectName);
+                            WSApp app(selectItem.GetName());
                             app.Uninstall();
                             GetEngine().GetServiceWnd().SyncItems();
                             ImGui::CloseCurrentPopup();
@@ -967,7 +974,13 @@ bool ResetConsolePosition(HANDLE stdOut)
 {
     CONSOLE_SCREEN_BUFFER_INFO csbi;
     if (!GetConsoleScreenBufferInfo(stdOut, &csbi)) {
-        SPDLOG_ERROR("GetConsoleScreenBufferInfo failed.");
+        SPDLOG_ERROR("GetConsoleScreenBufferInfo failed. WinApi@");
+        return false;
+    }
+
+    if (csbi.dwCursorPosition.X == 0 && csbi.dwCursorPosition.Y == 0) {
+        SPDLOG_WARN("GetConsoleScreenBufferInfo({},{}) ignore.",
+            csbi.dwCursorPosition.X, csbi.dwCursorPosition.Y);
         return false;
     }
 
@@ -979,7 +992,8 @@ bool ResetConsolePosition(HANDLE stdOut)
     FillConsoleOutputCharacter(stdOut, ' ', csbi.dwSize.X, csbi.dwCursorPosition, &charsWritten);
 
     if (!SetConsoleCursorPosition(stdOut, csbi.dwCursorPosition)) {
-        SPDLOG_ERROR("SetConsoleCursorPosition failed.");
+        SPDLOG_ERROR("SetConsoleCursorPosition({},{}) failed. WinApi@",
+            csbi.dwCursorPosition.X, csbi.dwCursorPosition.Y);
         return false;
     }
     return true;
@@ -1013,9 +1027,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 {
     InitSpdlog(true, true);
 
-    CHAR currentDir[MAX_PATH] = {0,};
-    GetCurrentDirectoryA(MAX_PATH, currentDir);
-    SPDLOG_INFO("WinMain [{}:{}] @ [{}]", __argc, __argv[0], currentDir);
+    CHAR workDir[MAX_PATH] = {0,};
+    GetCurrentDirectoryA(MAX_PATH, workDir);
+    SPDLOG_INFO("Work directory at: [{}]", workDir);
 
     __try
     {

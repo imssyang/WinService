@@ -36,7 +36,7 @@ int ConsoleMain(int argc, char *argv[], bool hasConsole)
         auto& cmd = ArgManager::Inst().Get("stop");
         auto name = cmd.get<std::string>("name");
         WSApp app(name);
-        app.Stop();
+        app.Stop(10000);
     } else if (m.is_subcommand_used("list")) {
         auto& cmd = ArgManager::Inst().Get("list");
         auto services = WSGeneral::Inst().GetServices();

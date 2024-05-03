@@ -117,7 +117,7 @@ void InitSpdlog(bool isGui, bool enableFile)
             auto file_formatter = std::make_unique<spdlog::pattern_formatter>();
             file_formatter->add_flag<wsm_formatter_flag>('*').set_pattern("[%P %C-%m-%d %H:%M:%S.%e %^%L%$ %s:%#:%!:%t] %v%*");
 
-            auto file_path = "O:/30-Project/WinService/log/wsm.txt";
+            auto file_path = GetLogDirectory() + "\\winsvc.log";
             auto max_size = 1024 * 1024 * 50; // 50MB
             auto max_files = 3;
             file_sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(file_path, max_size, max_files);
@@ -138,6 +138,43 @@ void InitSpdlog(bool isGui, bool enableFile)
     } catch (const spdlog::spdlog_ex& ex) {
         std::cout << "Log initialization failed: " << ex.what() << std::endl;
     }
+    GetWorkDirectory();
+}
+
+void WriteServiceLog(const std::string& svcName, const std::string& logContext)
+{
+    auto logPath = GetLogDirectory() + "\\" + svcName + ".log";
+    std::ofstream logFile(logPath, std::ios::app);
+    if (!logFile) {
+        logFile.open(logPath, std::ios::out);
+    }
+
+    if (!logFile.is_open()) {
+        SPDLOG_ERROR("{} can't open!", logPath);
+        return;
+    }
+
+    logFile << logContext;
+    logFile.close();
+}
+
+std::string GetWorkDirectory()
+{
+    char modulePath[MAX_PATH];
+    GetModuleFileName(NULL, modulePath, MAX_PATH);
+
+    std::string currentPath(modulePath);
+    std::string::size_type pos = currentPath.find_last_of("\\/");
+    std::string currentDir = currentPath.substr(0, pos);
+    SetCurrentDirectory(currentDir.c_str());
+    return currentDir;
+}
+
+std::string GetLogDirectory()
+{
+    auto logDir = GetWorkDirectory() + "\\logs";
+    CreateDirectory(logDir.data(), NULL);
+    return logDir;
 }
 
 std::string UTF8toANSI(const std::string& utf8)
@@ -178,6 +215,23 @@ std::string ANSItoUTF8(const std::string& gbk)
     if (WideCharToMultiByte(CP_UTF8, 0, wide.data(), -1, &utf8[0], utf8_length, NULL, NULL) == 0)
         throw std::runtime_error("Failed to convert wide string to UTF-8");
     return utf8;
+}
+
+void ForceKillProcess(DWORD processId)
+{
+    HANDLE hProcess = OpenProcess(PROCESS_TERMINATE, FALSE, processId);
+    if (!hProcess) {
+        SPDLOG_ERROR("Process:{} open failed! WinApi@", processId);
+        return;
+    }
+
+    if (!TerminateProcess(hProcess, 0)) {
+        SPDLOG_ERROR("Process:{} kill failed! WinApi@", processId);
+        return;
+    }
+
+    SPDLOG_INFO("Force kill process:{}", processId);
+    CloseHandle(hProcess);
 }
 
 void PrintStackContext(CONTEXT* ctx)
@@ -242,7 +296,6 @@ void PrintStackContext(CONTEXT* ctx)
         if (SymGetLineFromAddr64(process, stack.AddrPC.Offset, &lineDisp, line)) {
             SPDLOG_INFO("\tat {} in {}: line: {}: address: 0x{:X}", symbol->Name, line->FileName, line->LineNumber, symbol->Address);
         } else {
-            //failed to get line
             SPDLOG_INFO("\tat {}, address 0x{:X}", symbol->Name, symbol->Address);
             HMODULE hModule = NULL;
             GetModuleHandleEx(

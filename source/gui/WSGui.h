@@ -39,7 +39,7 @@ public:
     const WSvcConfig& GetSvcConfig() const { return config_; }
     std::string GetName() const { return status_.serviceName; }
     std::string GetAlias() const { return status_.displayName; }
-    std::string GetType() const { return status_.GetType(); }
+    std::string GetType() const { return config_.GetType(); }
     std::string GetStartup() const { return config_.GetStartType(); }
     std::string GetState() const { return status_.GetCurrentState(); }
     uint32_t GetPID() const { return (uint32_t) status_.processId; }

@@ -31,18 +31,22 @@ bool WSAgent::Install(const std::string& path)
 
     std::string agentPath = "\"";
     agentPath += unquotedPath;
-	agentPath += "\" /RunAsService \"";
-	agentPath += GetName();
-	agentPath += "\" ";
-	agentPath += path;
+	agentPath += "\" /RunAsService:";
+	agentPath += GetName() + " " + path;
     return WSApp::Install(agentPath);
 }
 
 std::string WSAgent::GetPath() const
 {
+    return GetPath(WSApp::GetPath());
+}
+
+std::string WSAgent::GetPath(const std::string& cmd)
+{
     std::string path;
-    auto& cmd = ArgManager::Inst().Get("/RunAsService");
-    auto argv = cmd.get<std::vector<std::string>>("argv");
+    ArgManager manager(cmd);
+    auto& parser = manager.Get("/RunAsService");
+    auto argv = parser.get<std::vector<std::string>>("argv");
     for (auto& arg : argv) {
         if (path.empty()) {
             path = arg;
@@ -123,33 +127,31 @@ VOID WINAPI WSAgent::ServiceMainProc(DWORD argc, LPTSTR *argv)
         return;
     }
 
-    SPDLOG_INFO("cmd: [{}] pid: [{}] tid: [{}] read-tid:[{}]",
+    SPDLOG_INFO("cmd:{} cmdPid:{} cmdTid:{} readTid:{}",
         app.GetPath(), pi.dwProcessId, pi.dwThreadId, dwReadThreadId);
 
     app.SetStatus(SERVICE_RUNNING, NO_ERROR, 0);
 
     while (true) {
         HANDLE waitHandles[3] = {app.stopEvent_, pi.hProcess, hReadThread};
-        DWORD dwEvent = WaitForMultipleObjects(ARRAYSIZE(waitHandles), waitHandles, FALSE, 1000000);
+        DWORD dwEvent = WaitForMultipleObjects(ARRAYSIZE(waitHandles), waitHandles, FALSE, 10000);
         switch (dwEvent) {
             case WAIT_OBJECT_0 + 0:
-                SPDLOG_INFO("Receive stop event, prepare stop child process: {}", pi.dwProcessId);
-                CloseHandle(app.stdOutRead_);
+                SPDLOG_INFO("{} ({}) receive stop event, prepare stop it.", app.GetName(), pi.dwProcessId);
                 EnumWindows(WindowCloserProc, pi.dwThreadId);
                 if (WaitForSingleObject(pi.hProcess, 2000) != WAIT_OBJECT_0)
                     TerminateProcess(pi.hProcess, -1);
                 ExitProcess(0);
-                break;
+                return;
             case WAIT_OBJECT_0 + 1:
-                SPDLOG_INFO("Child process({}) exit.", pi.dwProcessId);
-                CloseHandle(app.stdOutRead_);
+                SPDLOG_INFO("{} ({}) process exit.", app.GetName(), pi.dwProcessId);
                 ExitProcess(0);
-                break;
+                return;
             case WAIT_OBJECT_0 + 2:
-                SPDLOG_INFO("Receive read event.");
+                SPDLOG_WARN("{} ({}) read thread:{} event.", app.GetName(), pi.dwProcessId, dwReadThreadId);
                 break;
             case WAIT_TIMEOUT:
-                SPDLOG_INFO("Wait timed out.");
+                SPDLOG_INFO("{} ({}) timeout.", app.GetName(), pi.dwProcessId);
                 break;
             default:
                 SPDLOG_INFO("Unknown error.");
@@ -183,19 +185,17 @@ DWORD WINAPI WSAgent::CtrlHandlerProc(
 DWORD WINAPI WSAgent::StdReadThread(LPVOID lpParam)
 {
     auto& app = *reinterpret_cast<WSAgent*>(lpParam);
-    CHAR chBuf[2048];
-    DWORD dwRead;
+    CHAR buffer[2048];
+    DWORD numOfRead;
     for (int count = 0;; count++) {
-        BOOL bSuccess = ReadFile(app.stdOutRead_, chBuf, 2048, &dwRead, NULL);
-        if (!bSuccess || dwRead == 0) {
+        BOOL bSuccess = ReadFile(app.stdOutRead_, buffer, 2048, &numOfRead, NULL);
+        if (!bSuccess || numOfRead == 0) {
             SPDLOG_ERROR("ReadFile failed! WinApi@");
             break;
         }
 
-        std::string buffer(chBuf);
-        buffer.erase(std::remove_if(buffer.begin(), buffer.end(),
-            [](char c){ return std::isspace(c) && c != ' '; }), buffer.end());
-        SPDLOG_INFO("ReadFile:[{}] length:{}", buffer, buffer.length());
+        std::string context(buffer, numOfRead);
+        WriteServiceLog(app.GetName(), context);
     }
 
     return 0;

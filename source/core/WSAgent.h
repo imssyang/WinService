@@ -5,12 +5,13 @@
 class WSAgent : public WSApp
 {
 public:
+    static std::string GetPath(const std::string& cmd);
+
     WSAgent(const std::string& name, const std::string& alias = "");
     ~WSAgent();
 
     bool Install(const std::string& path) override;
     void Dispatch();
-
     std::string GetPath() const override;
 
 private:

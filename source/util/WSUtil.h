@@ -14,6 +14,7 @@
 #include <map>
 #include <mutex>
 #include <optional>
+#include <fstream>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -66,6 +67,8 @@ struct WSvcBase
                 return "Driver";
             case SERVICE_ADAPTER:
                 return "Adapter";
+            case SERVICE_WIN32_AS_SERVICE:
+                return "AsService";
             case SERVICE_WIN32_OWN_PROCESS:
                 return "WinOwn";
             case SERVICE_WIN32_SHARE_PROCESS:
@@ -76,8 +79,6 @@ struct WSvcBase
                 return "UserOwn";
             case SERVICE_USER_SHARE_PROCESS:
                 return "UserShare";
-            case SERVICE_WIN32_AS_SERVICE:
-                return "AsService";
             default:
                 std::stringstream ss;
                 ss << std::hex << svcType;
@@ -193,6 +194,9 @@ struct WSvcConfig : public WSvcBase
             description = sd.lpDescription;
         if (qsc.lpLoadOrderGroup)
             loadOrderGroup = qsc.lpLoadOrderGroup;
+        if (binaryPathName.find("winsvc") != std::string::npos
+            || binaryPathName.find("srvman") != std::string::npos)
+            serviceType = SERVICE_WIN32_AS_SERVICE;
     }
 
     std::string GetStartType() const {
@@ -232,10 +236,14 @@ struct WSvcConfig : public WSvcBase
     }
 };
 
-std::string UTF8toANSI(const std::string& utf8);
-std::string ANSItoUTF8(const std::string& gbk);
 
 void InitSpdlog(bool isGui, bool enableFile);
+void WriteServiceLog(const std::string& svcName, const std::string& logContext);
+std::string GetWorkDirectory();
+std::string GetLogDirectory();
+std::string UTF8toANSI(const std::string& utf8);
+std::string ANSItoUTF8(const std::string& gbk);
+void ForceKillProcess(DWORD processId);
 void PrintStackContext(CONTEXT* ctx);
 struct RtlContextException
 {

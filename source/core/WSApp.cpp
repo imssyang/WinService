@@ -30,28 +30,28 @@ bool WSApp::Install(const std::string& path)
         executedPath,
         NULL, NULL, NULL, NULL, NULL);
     if (!service) {
-        SPDLOG_ERROR("CreateService failed! WinApi@");
+        SPDLOG_ERROR("CreateService({}) failed! WinApi@", name_);
         return false;
     }
 
     path_ = path;
     CloseServiceHandle(service);
-    SPDLOG_INFO("Service installed successfully");
+    SPDLOG_INFO("{} service installed successfully", name_);
     return true;
 }
 
 bool WSApp::Uninstall()
 {
-    WSHandle wsHandle(SC_MANAGER_CREATE_SERVICE, DELETE, name_);
+    WSHandle wsHandle(SC_MANAGER_ENUMERATE_SERVICE, DELETE, name_);
     if (!wsHandle.Check())
         return false;
 
-    if (!DeleteService(wsHandle.Service)) {
-        SPDLOG_ERROR("DeleteService failed! WinApi@");
+    if (!::DeleteService(wsHandle.Service)) {
+        SPDLOG_ERROR("DeleteService({}) failed! WinApi@", name_);
         return false;
     }
 
-    SPDLOG_INFO("Service deleted successfully");
+    SPDLOG_INFO("{} service deleted successfully", name_);
     return true;
 }
 
@@ -70,12 +70,12 @@ bool WSApp::SetDescription(const std::string& desc)
             wsHandle.Service,
             SERVICE_CONFIG_DESCRIPTION,
             &sd)) {
-        SPDLOG_ERROR("ChangeServiceConfig2 failed! WinApi@");
+        SPDLOG_ERROR("ChangeServiceConfig2({}) failed! WinApi@", name_);
         return false;
     }
 
     desc_ = desc;
-    SPDLOG_INFO("Service description updated successfully.");
+    SPDLOG_INFO("{} service description updated successfully.", name_);
     return true;
 }
 
@@ -93,7 +93,7 @@ std::optional<WSvcConfig> WSApp::GetConfig(bool hasDesc)
     if (!QueryServiceConfig(wsHandle.Service, NULL, 0, &bytesNeeded)) {
         lastError = GetLastError();
         if (ERROR_INSUFFICIENT_BUFFER != lastError) {
-            SPDLOG_ERROR("QueryServiceConfig failed ({})", lastError);
+            SPDLOG_ERROR("QueryServiceConfig({}) failed! WinApi@", name_);
             goto svc_cleanup;
         }
 
@@ -102,7 +102,7 @@ std::optional<WSvcConfig> WSApp::GetConfig(bool hasDesc)
     }
 
     if (!QueryServiceConfig(wsHandle.Service, lpsc, bufSize, &bytesNeeded)) {
-        SPDLOG_ERROR("QueryServiceConfig failed.");
+        SPDLOG_ERROR("QueryServiceConfig({}) failed! WinApi@", name_);
         goto svc_cleanup;
     }
 
@@ -112,7 +112,7 @@ std::optional<WSvcConfig> WSApp::GetConfig(bool hasDesc)
                 bufSize = bytesNeeded;
                 lpsd = (LPSERVICE_DESCRIPTION) LocalAlloc(LMEM_FIXED, bufSize);
                 if (!QueryServiceConfig2(wsHandle.Service, SERVICE_CONFIG_DESCRIPTION, (LPBYTE) lpsd, bufSize, &bytesNeeded)) {
-                    SPDLOG_ERROR("QueryServiceConfig2 failed.");
+                    SPDLOG_ERROR("QueryServiceConfig2({}) failed! WinApi@", name_);
                     goto svc_cleanup;
                 }
             }
@@ -144,11 +144,11 @@ bool WSApp::SetStartup(DWORD type)
             type,
             SERVICE_NO_CHANGE,
             NULL, NULL, NULL, NULL, NULL, NULL, NULL)) {
-        SPDLOG_ERROR("ChangeServiceConfig failed! WinApi@");
+        SPDLOG_ERROR("ChangeServiceConfig({}) failed! WinApi@", name_);
         return false;
     }
 
-    SPDLOG_INFO("Service enabled successfully.");
+    SPDLOG_INFO("{} service enabled successfully.", name_);
     return true;
 }
 
@@ -165,7 +165,7 @@ bool WSApp::Start()
     auto& wss = wssopt.value();
     if (wss.currentState != SERVICE_STOPPED
         && wss.currentState != SERVICE_STOP_PENDING) {
-        SPDLOG_ERROR("Cannot start the service because it is already running");
+        SPDLOG_ERROR("{} service is already running.", wss.serviceName);
         return false;
     }
 
@@ -190,18 +190,17 @@ bool WSApp::Start()
             oldCheckPoint = wss.checkPoint;
         } else {
             if (GetTickCount() - startTickCount > wss.waitHint) {
-                SPDLOG_ERROR("Timeout waiting for service to stop");
+                SPDLOG_ERROR("{} service timeout waiting to stop.", wss.serviceName);
                 return false;
             }
         }
     }
 
     if (!::StartService(wsHandle.Service, 0, NULL)) {
-        SPDLOG_ERROR("StartService failed! WinApi@");
+        SPDLOG_ERROR("StartService({}) failed! WinApi@", wss.serviceName);
         return false;
     }
 
-    SPDLOG_INFO("Service start pending...");
     wssopt = GetStatus();
     if (!wssopt)
         return false;
@@ -234,19 +233,16 @@ bool WSApp::Start()
     }
 
     if (wss.currentState != SERVICE_RUNNING) {
-        SPDLOG_INFO("Service not started.");
-        SPDLOG_INFO("  Current State: {}", wss.GetCurrentState());
-        SPDLOG_INFO("  Exit Code: {}", wss.win32ExitCode);
-        SPDLOG_INFO("  Check Point: {}", wss.checkPoint);
-        SPDLOG_INFO("  Wait Hint: {}", wss.waitHint);
+        SPDLOG_ERROR("{} service not started with state:{} exitCode:{}",
+            wss.serviceName, wss.GetCurrentState(), wss.win32ExitCode);
         return false;
     }
 
-    SPDLOG_INFO("Service started successfully.");
+    SPDLOG_INFO("{} started successfully.", wss.serviceName);
     return true;
 }
 
-bool WSApp::Stop()
+bool WSApp::Stop(uint32_t timeoutMS)
 {
     WSHandle wsHandle(SC_MANAGER_ENUMERATE_SERVICE, SERVICE_STOP |
         SERVICE_QUERY_STATUS |
@@ -261,18 +257,16 @@ bool WSApp::Stop()
     auto& wss = wssopt.value();
     if (wss.currentState == SERVICE_STOPPED) {
         SPDLOG_INFO("Service is already stopped.");
-        return false;
+        return true;
     }
 
     DWORD waitTime;
     DWORD startTime = GetTickCount();
-    DWORD timeoutMS = 30000;
     while (wss.currentState == SERVICE_STOP_PENDING) {
-        SPDLOG_INFO("Service stop pending...");
         waitTime = wss.waitHint / 10;
-        if( waitTime < 1000 )
+        if (waitTime < 1000)
             waitTime = 1000;
-        else if ( waitTime > 10000 )
+        else if (waitTime > 10000)
             waitTime = 10000;
         Sleep(waitTime);
 
@@ -282,12 +276,13 @@ bool WSApp::Stop()
 
         wss = wssopt.value();
         if (wss.currentState == SERVICE_STOPPED) {
-            SPDLOG_INFO("Service stopped successfully.");
-            return false;
+            SPDLOG_INFO("{} ({}) stopped successfully.", wss.serviceName, wss.processId);
+            return true;
         }
 
         if (GetTickCount() - startTime > timeoutMS) {
-            SPDLOG_INFO("Service stop timed out.");
+            SPDLOG_INFO("{} ({}) stop timeout.", wss.serviceName, wss.processId);
+            ForceKillProcess(wss.processId);
             return false;
         }
     }
@@ -299,7 +294,7 @@ bool WSApp::Stop()
     if (!ControlService(wsHandle.Service, SERVICE_CONTROL_STOP, (LPSERVICE_STATUS) &ssp)) {
         DWORD lastError = GetLastError();
         if (ERROR_BROKEN_PIPE != lastError) {
-            SPDLOG_ERROR("ControlService failed.");
+            SPDLOG_ERROR("ControlService({}) failed. WinApi@", wss.serviceName);
             return false;
         }
     }
@@ -307,7 +302,10 @@ bool WSApp::Stop()
     wss.currentState = ssp.dwCurrentState;
     wss.waitHint = ssp.dwWaitHint;
     while (wss.currentState != SERVICE_STOPPED) {
-        Sleep(wss.waitHint);
+        waitTime = wss.waitHint;
+        if (waitTime > 1000)
+            waitTime = 1000;
+        Sleep(waitTime);
 
         wssopt = GetStatus();
         if (!wssopt)
@@ -318,12 +316,13 @@ bool WSApp::Stop()
             break;
 
         if (GetTickCount() - startTime > timeoutMS) {
-            SPDLOG_INFO("Wait timed out");
+            SPDLOG_INFO("Wait {} ({}) timeout.", wss.serviceName, wss.processId);
+            ForceKillProcess(wss.processId);
             return false;
         }
     }
 
-    SPDLOG_INFO("Service stopped successfully");
+    SPDLOG_INFO("{} ({}) stopped successfully", wss.serviceName, wss.processId);
     return true;
 }
 

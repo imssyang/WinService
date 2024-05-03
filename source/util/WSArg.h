@@ -11,6 +11,22 @@ public:
         return inst;
     }
 
+    ArgManager(const std::string& cmd) {
+        std::stringstream ss(cmd);
+        std::vector<std::string> args;
+        std::string arg;
+        while (ss >> arg) {
+            args.push_back(arg);
+        }
+
+        try {
+            version_ = "1.0";
+            InitMain(args, "main");
+        } catch (const std::runtime_error &err) {
+            SPDLOG_ERROR(err.what());
+        }
+    }
+
     auto Get(const std::string& name) const -> const argparse::ArgumentParser& {
         auto it = cmds_.find(name);
         if (it == cmds_.end())
@@ -29,6 +45,14 @@ private:
     }
 
     void InitMain(int argc, char *argv[], const std::string& name) {
+        std::vector<std::string> args;
+        for (int i = 0; i < argc; ++i) {
+            args.push_back(argv[i]);
+        }
+        InitMain(args, name);
+    }
+
+    void InitMain(const std::vector<std::string>& args, const std::string& name) {
         CHAR modulePath[MAX_PATH];
         GetModuleFileName(NULL, modulePath, MAX_PATH);
 
@@ -47,7 +71,7 @@ private:
         c->add_subparser(InitSubcommand(AddListArgument, "list"));
         c->add_subparser(InitSubcommand(AddAgentArgument, "/RunAsService"));
 
-        c->parse_args(argc, argv);
+        c->parse_args(AmendArgument(args));
         cmds_.insert_or_assign(name, std::move(c));
     }
 
@@ -58,6 +82,22 @@ private:
         func(*c);
         cmds_.insert_or_assign(name, std::move(c));
         return *cmds_[name];
+    }
+
+    static std::vector<std::string> AmendArgument(const std::vector<std::string>& arguments) {
+        std::vector<std::string> args;
+        for (auto& argument : arguments) {
+            std::string arg(argument);
+            std::string pattern = "/RunAsService:";
+            size_t position = arg.find(pattern);
+            if (position == std::string::npos) {
+                args.push_back(arg);
+            } else {
+                args.push_back(arg.substr(0, position+pattern.length()-1));
+                args.push_back(arg.substr(position+pattern.length()));
+            }
+        }
+        return args;
     }
 
     static void AddInstallArgument(argparse::ArgumentParser& c) {

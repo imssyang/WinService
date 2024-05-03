@@ -11,7 +11,7 @@ public:
     virtual bool Install(const std::string& path);
     bool Uninstall();
     bool Start();
-    bool Stop();
+    bool Stop(uint32_t timeoutMS);
     bool SetStartup(DWORD type = SERVICE_DEMAND_START);
     std::optional<WSvcStatus> GetStatus();
     std::optional<WSvcConfig> GetConfig(bool hasDesc = false);
