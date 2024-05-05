@@ -8,29 +8,17 @@ WinService is a small tool to manage Windows Services that inspired by [srvman](
 
 ## Feature
 
-- Add or delete Win32 services.
-- Agent arbitrary Win32 application as service, and redirect console output to log file.
-- Support filter services.
+-   Add or delete Win32 services.
+-   Agent arbitrary Win32 application as service, and redirect console output to log file.
+-   Support filter services.
 
 ## Dependencies
 
-- [imgui](https://github.com/ocornut/imgui): A bloat-free graphical user interface library for C++.
-- [spdlog](https://github.com/gabime/spdlog): Very fast, header-only/compiled, C++ logging library.
-- [argparse](https://github.com/p-ranav/argparse): Argument Parser for Modern C++17.
+-   [imgui](https://github.com/ocornut/imgui): A bloat-free graphical user interface library for C++.
+-   [spdlog](https://github.com/gabime/spdlog): Very fast, header-only/compiled, C++ logging library.
+-   [argparse](https://github.com/p-ranav/argparse): Argument Parser for Modern C++17.
 
 ### Commands
-
-Development in visual studio:
-
-```bash
-nmake cmd
-nmake gui /E DEBUG=1
-
-winsvc uninstall frps
-winsvc start frps
-winsvc stop frps
-winsvc list -fp RunAs
-```
 
 Help infomation in console:
 
@@ -70,6 +58,13 @@ Stop service:
 winsvc stop <name>
 ```
 
+Development in visual studio 2019+ (/E DEBUG=1):
+
+```bash
+nmake cmd
+nmake gui
+```
+
 ## Todo
 
-- Show log in GUI
+-   Show log in GUI
