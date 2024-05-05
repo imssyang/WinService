@@ -71,3 +71,4 @@ nmake gui
 
 - Show log in GUI
 - Fresh gui by timer
+- Support chinese
