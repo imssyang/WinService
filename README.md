@@ -4,19 +4,21 @@
   </h1>
 </a>
 
+![winsvc](https://github.com/imssyang/WinService/blob/main/snapshot/winsvc.png)
+
 WinService is a small tool to manage Windows Services that inspired by [srvman](https://sysprogs.com/legacy/tools/srvman). The functionality of Services in windows is too weak, and does not support addition or deletion, and needs special adaptation for api of win32 kernel. SrvMan solved these problems by treating the console program as a child process of srvman, but its GUI is too simple to lack filtering, and I usually only care about services that run as subprocess, so this service was born.
 
 ## Feature
 
--   Add or delete Win32 services.
--   Agent arbitrary Win32 application as service, and redirect console output to log file.
--   Support filter services.
+- Add or delete Win32 services.
+- Agent arbitrary Win32 application as service, and redirect console output to log file.
+- Support filter services.
 
 ## Dependencies
 
--   [imgui](https://github.com/ocornut/imgui): A bloat-free graphical user interface library for C++.
--   [spdlog](https://github.com/gabime/spdlog): Very fast, header-only/compiled, C++ logging library.
--   [argparse](https://github.com/p-ranav/argparse): Argument Parser for Modern C++17.
+- [imgui](https://github.com/ocornut/imgui): A bloat-free graphical user interface library for C++.
+- [spdlog](https://github.com/gabime/spdlog): Very fast, header-only/compiled, C++ logging library.
+- [argparse](https://github.com/p-ranav/argparse): Argument Parser for Modern C++17.
 
 ### Commands
 
@@ -67,4 +69,5 @@ nmake gui
 
 ## Todo
 
--   Show log in GUI
+- Show log in GUI
+- Fresh gui by timer
