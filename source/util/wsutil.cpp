@@ -118,7 +118,7 @@ void InitSpdlog(bool isGui, bool enableFile)
             file_formatter->add_flag<wsm_formatter_flag>('*').set_pattern("[%P %C-%m-%d %H:%M:%S.%e %^%L%$ %s:%#:%!:%t] %v%*");
 
             std::filesystem::path log_dir(GetLogDirectory());
-            std::filesystem::path file_name("winsvc.log");
+            std::filesystem::path file_name(GetProgramName() + ".log");
             std::filesystem::path file_path = log_dir / file_name;
             auto max_size = 1024 * 1024 * 50; // 50MB
             auto max_files = 3;
@@ -181,6 +181,16 @@ std::string GetLogDirectory()
     std::filesystem::path logDir = workDir / subLog;
     CreateDirectory(logDir.string().data(), NULL);
     return logDir.string();
+}
+
+std::string GetProgramName()
+{
+    char modulePath[MAX_PATH];
+    GetModuleFileName(NULL, modulePath, MAX_PATH);
+
+    std::string fileName = PathFindFileName(modulePath);
+    std::string fileExt = PathFindExtension(fileName.data());
+    return fileName.substr(0, fileName.length() - fileExt.length());
 }
 
 std::string Utf8ToAnsi(const std::string& utf8)

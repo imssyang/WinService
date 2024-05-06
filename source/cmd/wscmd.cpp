@@ -94,7 +94,7 @@ int main(int argc, char *argv[]) {
 
     CHAR currentDir[MAX_PATH] = {0,};
     GetCurrentDirectoryA(MAX_PATH, currentDir);
-    SPDLOG_INFO("main [{}:{}] @ [{}]", argc, argv[0], currentDir);
+    SPDLOG_DEBUG("main [{}:{}] @ [{}]", argc, argv[0], currentDir);
 
     try {
         ConsoleMain(argc, argv, false);

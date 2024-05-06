@@ -53,14 +53,9 @@ private:
     }
 
     void InitMain(const std::vector<std::string>& args, const std::string& name) {
-        CHAR modulePath[MAX_PATH];
-        GetModuleFileName(NULL, modulePath, MAX_PATH);
-
-        std::string fileName = PathFindFileName(modulePath);
-        std::string fileExt = PathFindExtension(fileName.data());
-        fileName = fileName.substr(0, fileName.length() - fileExt.length());
-
-        auto c = std::make_unique<argparse::ArgumentParser>(fileName, version_, argparse::default_arguments::none);
+        auto c = std::make_unique<argparse::ArgumentParser>(
+            GetProgramName(), version_, argparse::default_arguments::none
+        );
         AddHelpArgument(*c);
         AddVersionArgument(*c);
 

@@ -2,5 +2,3 @@
 
 IDR_MAINFRAME            ICON  "source\\gui\\resource\\main.ico"
 IDF_FONT_MSYAHEI         FONT  "source\\gui\\resource\\font\\MSYaHei.ttc"
-IDF_FONT_MSYAHEI_LIGHT   FONT  "source\\gui\\resource\\font\\MSYaHeiLight.ttc"
-IDF_FONT_MSYAHEI_BOLD    FONT  "source\\gui\\resource\\font\\MSYaheiBold.ttc"

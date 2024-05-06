@@ -242,6 +242,7 @@ void InitSpdlog(bool isGui, bool enableFile);
 void WriteServiceLog(const std::string& svcName, const std::string& logContext);
 std::string GetWorkDirectory();
 std::string GetLogDirectory();
+std::string GetProgramName();
 std::string Utf8ToAnsi(const std::string& utf8);
 std::string AnsiToUtf8(const std::string& ansi);
 void ForceKillProcess(DWORD processId);

@@ -480,8 +480,8 @@ void ImGuiServiceWnd::Show()
         ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthFixed, 100.0f, ImGuiServiceWnd::ColumnID_Name);
         ImGui::TableSetupColumn("Alias", ImGuiTableColumnFlags_WidthFixed, 150.0f, ImGuiServiceWnd::ColumnID_Alias);
         ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_WidthFixed, 70.0f, ImGuiServiceWnd::ColumnID_Type);
-        ImGui::TableSetupColumn("Startup", ImGuiTableColumnFlags_WidthFixed, 0.0f, ImGuiServiceWnd::ColumnID_Startup);
-        ImGui::TableSetupColumn("State", ImGuiTableColumnFlags_WidthFixed, 0.0f, ImGuiServiceWnd::ColumnID_State);
+        ImGui::TableSetupColumn("Startup", ImGuiTableColumnFlags_WidthFixed, 80.0f, ImGuiServiceWnd::ColumnID_Startup);
+        ImGui::TableSetupColumn("State", ImGuiTableColumnFlags_WidthFixed, 80.0f, ImGuiServiceWnd::ColumnID_State);
         ImGui::TableSetupColumn("PID",  ImGuiTableColumnFlags_WidthFixed, 60.0f, ImGuiServiceWnd::ColumnID_PID);
         ImGui::TableSetupColumn("Path", ImGuiTableColumnFlags_WidthFixed, 1600.0f, ImGuiServiceWnd::ColumnID_Path);
         ImGui::TableSetupColumn("Desc", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_DefaultHide, 0.0f, ImGuiServiceWnd::ColumnID_Desc);
@@ -785,26 +785,6 @@ void ImGuiNavigationWnd::Show()
     }
 
     ImGui::End();
-}
-
-bool ReadFontFile(const std::string& filename, std::vector<unsigned char>& fontData)
-{
-    std::ifstream file(filename, std::ios::binary | std::ios::ate);
-    if (!file.is_open())
-    {
-        return false;
-    }
-
-    std::streamsize fileSize = file.tellg();
-    file.seekg(0, std::ios::beg);
-
-    fontData.resize(fileSize);
-    if (!file.read(reinterpret_cast<char*>(fontData.data()), fileSize))
-    {
-        return false;
-    }
-
-    return true;
 }
 
 ImGuiEngine::ImGuiEngine(HWND hwnd)
