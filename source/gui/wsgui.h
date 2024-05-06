@@ -38,13 +38,13 @@ public:
     const WSvcStatus& GetSvcStatus() const { return status_; }
     const WSvcConfig& GetSvcConfig() const { return config_; }
     std::string GetName() const { return status_.serviceName; }
-    std::string GetAlias() const { return status_.displayName; }
+    std::string GetAlias() const { return AnsiToUtf8(status_.displayName); }
     std::string GetType() const { return config_.GetType(); }
     std::string GetStartup() const { return config_.GetStartType(); }
     std::string GetState() const { return status_.GetCurrentState(); }
     uint32_t GetPID() const { return (uint32_t) status_.processId; }
     std::string GetPath() const { return config_.binaryPathName; }
-    std::string GetDesc() const { return ANSItoUTF8(config_.description); }
+    std::string GetDesc() const { return AnsiToUtf8(config_.description); }
 
 private:
     int id_;
@@ -182,6 +182,9 @@ public:
     void SetMainColor(float x, float y, float z, float w);
     void ShowMainWnd(bool hasVsync);
     void ShowWidgetWnd();
+
+private:
+    ImFont* AddFont(ImGuiIO& io, uint32_t resourceId, float pixelSize);
 
 private:
     std::map<int, ImFont*> fonts_;

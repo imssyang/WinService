@@ -77,7 +77,7 @@ private:
 
         std::string msg((LPCSTR)lpMsgBuf);
         msg.erase(std::remove_if(msg.begin(), msg.end(),
-            [](char c){ return std::isspace(c) && c != ' '; }), msg.end());
+            [](char c){ return c == '\n'; }), msg.end());
         LocalFree(lpMsgBuf);
 
         std::stringstream result;
@@ -183,44 +183,52 @@ std::string GetLogDirectory()
     return logDir.string();
 }
 
-std::string UTF8toANSI(const std::string& utf8)
+std::string Utf8ToAnsi(const std::string& utf8)
 {
-    int wide_length = MultiByteToWideChar(CP_UTF8, 0, utf8.data(), -1, NULL, 0);
-    if (wide_length == 0)
-        throw std::runtime_error("Failed to get wide string length for UTF-8 to GBK conversion");
+    int wideSize = ::MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, nullptr, 0);
+    if (wideSize == 0)
+        throw std::runtime_error("Failed to get length of wide-string.");
 
-    std::wstring wide(wide_length, L'\0');
-    if (MultiByteToWideChar(CP_UTF8, 0, utf8.data(), -1, &wide[0], wide_length) == 0)
-        throw std::runtime_error("Failed to convert UTF-8 to wide string for GBK conversion");
+    wchar_t* wide = new wchar_t[wideSize];
+    if (::MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, wide, wideSize) == 0)
+        throw std::runtime_error("Failed to convert UTF8 to wide-string.");
 
-    int gbk_length = WideCharToMultiByte(CP_ACP, 0, wide.data(), -1, NULL, 0, NULL, NULL);
-    if (gbk_length == 0)
-        throw std::runtime_error("Failed to get GBK string length for UTF-8 to GBK conversion");
+    int ansiSize = ::WideCharToMultiByte(CP_ACP, 0, wide, -1, nullptr, 0, nullptr, nullptr);
+    if (ansiSize == 0)
+        throw std::runtime_error("Failed to get length of ACP string.");
 
-    std::string gbk(gbk_length, '\0');
-    if (WideCharToMultiByte(CP_ACP, 0, wide.data(), -1, &gbk[0], gbk_length, NULL, NULL) == 0)
-        throw std::runtime_error("Failed to convert wide string to GBK");
-    return gbk;
+    char* ansi = new char[ansiSize];
+    if (::WideCharToMultiByte(CP_ACP, 0, wide, -1, ansi, ansiSize, nullptr, nullptr) == 0)
+        throw std::runtime_error("Failed to convert wide-string to ACP");
+
+    std::string result(ansi);
+    delete[] ansi;
+    delete[] wide;
+    return result;
 }
 
-std::string ANSItoUTF8(const std::string& gbk)
+std::string AnsiToUtf8(const std::string& ansi)
 {
-    int wide_length = MultiByteToWideChar(CP_ACP, 0, gbk.data(), -1, NULL, 0);
-    if (wide_length == 0)
-        throw std::runtime_error("Failed to get wide string length for GBK to UTF-8 conversion");
+    int wideSize = ::MultiByteToWideChar(CP_ACP, 0, ansi.c_str(), -1, nullptr, 0);
+    if (wideSize == 0)
+        throw std::runtime_error("Failed to get length of wide-string.");
 
-    std::wstring wide(wide_length, L'\0');
-    if (MultiByteToWideChar(CP_ACP, 0, gbk.data(), -1, &wide[0], wide_length) == 0)
-        throw std::runtime_error("Failed to convert GBK to wide string for UTF-8 conversion");
+    wchar_t* wide = new wchar_t[wideSize];
+    if (::MultiByteToWideChar(CP_ACP, 0, ansi.c_str(), -1, wide, wideSize) == 0)
+        throw std::runtime_error("Failed to convert ACP to wide-string.");
 
-    int utf8_length = WideCharToMultiByte(CP_UTF8, 0, wide.data(), -1, NULL, 0, NULL, NULL);
-    if (utf8_length == 0)
-        throw std::runtime_error("Failed to get UTF-8 string length for GBK to UTF-8 conversion");
+    int utf8Size = ::WideCharToMultiByte(CP_UTF8, 0, wide, -1, nullptr, 0, nullptr, nullptr);
+    if (utf8Size == 0)
+        throw std::runtime_error("Failed to get length of UTF8 string.");
 
-    std::string utf8(utf8_length, '\0');
-    if (WideCharToMultiByte(CP_UTF8, 0, wide.data(), -1, &utf8[0], utf8_length, NULL, NULL) == 0)
-        throw std::runtime_error("Failed to convert wide string to UTF-8");
-    return utf8;
+    char* utf8 = new char[utf8Size];
+    if (::WideCharToMultiByte(CP_UTF8, 0, wide, -1, utf8, utf8Size, nullptr, nullptr) == 0)
+        throw std::runtime_error("Failed to convert wide-string to UTF8");
+
+    std::string result(utf8);
+    delete[] utf8;
+    delete[] wide;
+    return result;
 }
 
 void ForceKillProcess(DWORD processId)

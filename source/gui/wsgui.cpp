@@ -165,14 +165,13 @@ std::vector<std::string> ImGuiBaseWnd::StateIDs({
     WSvcStatus::GetState(SERVICE_STOPPED)
 });
 
-
 std::string ImGuiBaseWnd::ToMultiLine(const std::string& line, int charNum)
 {
     std::string multiline(line);
     int count = 0;
     for (int i = 0; i < multiline.size(); i++) {
         if (count >= charNum) {
-            if (std::isspace(multiline[i])) {
+            if (multiline[i] == ' ') {
                 multiline[i] = '\n';
                 count = 0;
             }
@@ -191,7 +190,7 @@ std::string ImGuiBaseWnd::ToOneLine(const std::string& multiline)
         }
     }
     auto it = std::find_if_not(line.rbegin(), line.rend(), [](unsigned char ch) {
-        return std::isspace(ch);
+        return ch == ' ';
     });
     line.erase(it.base(), line.end());
     return std::move(line);
@@ -788,6 +787,26 @@ void ImGuiNavigationWnd::Show()
     ImGui::End();
 }
 
+bool ReadFontFile(const std::string& filename, std::vector<unsigned char>& fontData)
+{
+    std::ifstream file(filename, std::ios::binary | std::ios::ate);
+    if (!file.is_open())
+    {
+        return false;
+    }
+
+    std::streamsize fileSize = file.tellg();
+    file.seekg(0, std::ios::beg);
+
+    fontData.resize(fileSize);
+    if (!file.read(reinterpret_cast<char*>(fontData.data()), fileSize))
+    {
+        return false;
+    }
+
+    return true;
+}
+
 ImGuiEngine::ImGuiEngine(HWND hwnd)
     : servWnd_(this), navWnd_(this), dx11_(hwnd)
 {
@@ -798,17 +817,15 @@ ImGuiEngine::ImGuiEngine(HWND hwnd)
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
 
-#ifdef IMGUI_ENABLE_FREETYPE
     auto* fontAtlas = io.Fonts;
-    auto* glyphRanges = fontAtlas->GetGlyphRangesChineseSimplifiedCommon();
+    const ImWchar *chineseGlyphRanges = fontAtlas->GetGlyphRangesChineseSimplifiedCommon();
     fonts_[Font_Default] = fontAtlas->AddFontDefault();
-    fonts_[Font_STZhongsong] = fontAtlas->AddFontFromFileTTF("source/gui/resource/font/STZhongsong.ttf", 18.0f, nullptr, glyphRanges);
-    fonts_[Font_STXihei] = fontAtlas->AddFontFromFileTTF("source/gui/resource/font/STXihei.ttf", 18.0f, nullptr, glyphRanges);
-    fonts_[Font_MSYaHei] = fontAtlas->AddFontFromFileTTF("source/gui/resource/font/MSYaHei.ttc", 18.0f, nullptr, glyphRanges);
-    fonts_[Font_MSYaHeiLight] = fontAtlas->AddFontFromFileTTF("source/gui/resource/font/MSYaHeiLight.ttc", 18.0f, nullptr, glyphRanges);
-    fonts_[Font_MSYaheiBold] = fontAtlas->AddFontFromFileTTF("source/gui/resource/font/MSYaheiBold.ttc", 18.0f, nullptr, glyphRanges);
-    io.FontDefault = fonts_[Font_Default];
+    fonts_[Font_MSYaHei] = AddFont(io, IDF_FONT_MSYAHEI, 16.0f);
+#ifdef IMGUI_ENABLE_FREETYPE
+    fonts_[Font_MSYaHeiLight] = AddFont(io, IDF_FONT_MSYAHEI_LIGHT, 16.0f);
+    fonts_[Font_MSYaheiBold] = AddFont(io, IDF_FONT_MSYAHEI_BOLD, 18.0f);
 #endif
+    io.FontDefault = fonts_[Font_MSYaHei];
 
     ImGui::StyleColorsLight();
 
@@ -821,6 +838,20 @@ ImGuiEngine::~ImGuiEngine()
     ImGui_ImplDX11_Shutdown();
     ImGui_ImplWin32_Shutdown();
     ImGui::DestroyContext();
+}
+
+ImFont* ImGuiEngine::AddFont(ImGuiIO& io, uint32_t resourceId, float pixelSize)
+{
+    ImFontConfig fontCfg;
+    fontCfg.FontDataOwnedByAtlas = false;
+
+    ImFontAtlas& fontAtlas = *io.Fonts;
+    auto chineseGlyphRanges = fontAtlas.GetGlyphRangesChineseSimplifiedCommon();
+    HRSRC resHandle = ::FindResource(nullptr, MAKEINTRESOURCE(resourceId), RT_FONT);
+    HGLOBAL globHandle = ::LoadResource(nullptr, resHandle);
+    void* data = ::LockResource(globHandle);
+    DWORD dataSize = ::SizeofResource(nullptr, resHandle);
+    return fontAtlas.AddFontFromMemoryTTF(data, dataSize, pixelSize, &fontCfg, chineseGlyphRanges);
 }
 
 void ImGuiEngine::ResetMainWnd()
@@ -963,7 +994,7 @@ void GuiWindow::PollMessage()
 
 int GuiMain(int argc, char *argv[])
 {
-    GuiWindow gui(UTF8toANSI("WinService"), 100, 100, 1280, 800);
+    GuiWindow gui(Utf8ToAnsi("WinService"), 100, 100, 1280, 800);
     gui.PollMessage();
     return 0;
 }

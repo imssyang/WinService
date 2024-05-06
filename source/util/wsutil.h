@@ -242,8 +242,8 @@ void InitSpdlog(bool isGui, bool enableFile);
 void WriteServiceLog(const std::string& svcName, const std::string& logContext);
 std::string GetWorkDirectory();
 std::string GetLogDirectory();
-std::string UTF8toANSI(const std::string& utf8);
-std::string ANSItoUTF8(const std::string& gbk);
+std::string Utf8ToAnsi(const std::string& utf8);
+std::string AnsiToUtf8(const std::string& ansi);
 void ForceKillProcess(DWORD processId);
 void PrintStackContext(CONTEXT* ctx);
 struct RtlContextException

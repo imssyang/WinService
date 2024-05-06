@@ -31,7 +31,7 @@ CFLAG_GUI = $(CFLAG_GUI) /I $(SOURCE)/gui/imgui
 CFLAG_GUI = $(CFLAG_GUI) /I $(SOURCE)/gui/imgui/backends
 CFLAG_GUI = $(CFLAG_GUI) /I $(SOURCE)/gui/imgui/misc/freetype
 CFLAG_GUI = $(CFLAG_GUI) /I $(SOURCE)/gui/freetype/include
-RFLAG_GUI = /I $(SOURCE) /I $(SOURCE)/gui /I $(SOURCE)/gui/resource
+RFLAG_GUI = /I $(SOURCE) /I $(SOURCE)/gui /I $(SOURCE)/gui/resource /I $(SOURCE)/gui/resource/font
 LFLAG_GUI = $(LFLAG) /SUBSYSTEM:WINDOWS /LIBPATH:"$(SOURCE)/gui/freetype/lib"
 
 {$(SOURCE)\util}.cpp{$(BUILD)\util}.obj:

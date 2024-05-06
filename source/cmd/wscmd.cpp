@@ -74,7 +74,7 @@ int ConsoleMain(int argc, char *argv[], bool hasConsole)
                 config.binaryPathName, config.GetStartType()});
         }
 
-        SPDLOG_COUT(ANSItoUTF8(services_table.str()));
+        SPDLOG_COUT(AnsiToUtf8(services_table.str()));
     } else if (m.is_subcommand_used("/RunAsService")) {
         auto& cmd = ArgManager::Inst().Get("/RunAsService");
         auto name = cmd.get<std::string>("name");

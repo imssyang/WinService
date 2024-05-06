@@ -45,6 +45,17 @@ bool WSHandle::Check() const
     return true;
 }
 
+std::string stringToHex(const std::string& input)
+{
+    std::ostringstream oss;
+    oss << std::hex << std::setfill('0');
+    for (const unsigned char c : input)
+    {
+        oss << std::setw(2) << static_cast<int>(c);
+    }
+    return oss.str();
+}
+
 std::vector<WSvcStatus> WSGeneral::GetServices()
 {
     std::vector<WSvcStatus> result;
